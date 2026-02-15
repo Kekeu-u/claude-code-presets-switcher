@@ -1,0 +1,13 @@
+{
+    "_preset": {
+        "name": "Smart Router",
+        "description": "Kimi (Main) + Gemini 3.0 (Background/Context) + GLM/MiniMax (Bkp)",
+        "created": "2026-02-15"
+    },
+    "env": {
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:3000/v1/messages",
+        "ANTHROPIC_AUTH_TOKEN": "sk-musi",
+        "ANTHROPIC_MODEL": "ccr-smart-router",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    }
+}
