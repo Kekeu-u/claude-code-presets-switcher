@@ -17,6 +17,8 @@
 - 🧩 **Extensible** — drop a `.json` in the folder, it auto-detects
 - 🚀 **Auto-launch** — optionally starts Claude Code after switching
 - 🌐 **Smart Router support** — use [Claude Code Router (CCR)](https://github.com/musistudio/claude-code-router) to route requests to the best model per task
+- 📊 **CCR Dashboard** — real-time visual dashboard to manage your router
+- 📥 **One-liner install** — bilingual installer (EN/PT-BR) with Desktop reference guide
 
 ---
 
@@ -30,53 +32,43 @@
 
 ## 🚀 Quick Start
 
-### 1. Clone this repo
+Open **PowerShell 7+** and run:
 
 ```powershell
+irm https://raw.githubusercontent.com/Kekeu-u/claude-code-presets-switcher/main/install.ps1 | iex
+```
+
+This will:
+
+1. Clone the repo to `~/.claude/presets/`
+2. Register `cmodel` and `ccr-dash` commands
+3. Save a **quick reference guide** to your Desktop
+4. Detect your language (English / Português) automatically
+
+Restart your terminal and run `cmodel` — that's it! ✅
+
+<details>
+<summary>📖 Manual installation</summary>
+
+```powershell
+# 1. Clone
 git clone https://github.com/Kekeu-u/claude-code-presets-switcher.git
-```
 
-### 2. Copy presets to your Claude folder
-
-```powershell
-# Create the presets directory
+# 2. Copy to Claude folder
 New-Item -ItemType Directory -Path "$env:USERPROFILE\.claude\presets" -Force
+Copy-Item .\claude-code-presets-switcher\* "$env:USERPROFILE\.claude\presets\" -Recurse
 
-# Copy script + example presets
-Copy-Item .\claude-code-presets-switcher\switch-preset.ps1 "$env:USERPROFILE\.claude\presets\"
-Copy-Item .\claude-code-presets-switcher\presets\*.json "$env:USERPROFILE\.claude\presets\"
-```
+# 3. Add to PowerShell profile
+Add-Content $PROFILE @'
+function Switch-ClaudePreset { . "$env:USERPROFILE\.claude\presets\switch-preset.ps1" @args }
+Set-Alias cmodel Switch-ClaudePreset
+'@
 
-### 3. Add your API keys
-
-Edit each `.json` in `~\.claude\presets\` and replace `YOUR_API_KEY_HERE` with your actual key:
-
-```powershell
+# 4. Add your API keys
 notepad "$env:USERPROFILE\.claude\presets\kimi.json"
 ```
 
-### 4. Set up the alias
-
-```powershell
-# Open your PowerShell profile
-notepad $PROFILE
-```
-
-Add this at the end and save:
-
-```powershell
-# 🐉 Claude Code Preset Switcher
-function Switch-ClaudePreset { . "$env:USERPROFILE\.claude\presets\switch-preset.ps1" @args }
-Set-Alias cmodel Switch-ClaudePreset
-```
-
-Reload:
-
-```powershell
-. $PROFILE
-```
-
-**Done!** ✅
+</details>
 
 ---
 
@@ -139,7 +131,7 @@ Every preset is a simple JSON with metadata + environment variables:
 
 ---
 
-## 🌟 Smart Router (Advanced)
+## 🌟 Smart Router + Dashboard
 
 For automatic model routing (e.g., Kimi for coding, Gemini for background tasks), install [Claude Code Router](https://github.com/musistudio/claude-code-router):
 
@@ -150,11 +142,17 @@ npm install -g @musistudio/claude-code-router
 Then use the `router` preset:
 
 ```powershell
-cmodel router   # Auto-starts CCR if needed
-ccr ui          # Open dashboard to see live routing
+cmodel router   # Auto-starts CCR + opens dashboard
+ccr-dash        # Open dashboard manually
 ```
 
-The script **auto-starts CCR** when it detects a preset pointing to `localhost:3000`.
+When you select a CCR preset, `cmodel` will:
+
+1. **Auto-start the router** on port 3000
+2. **Launch the CCR Dashboard** on [localhost:3456](http://localhost:3456)
+3. **Open your browser** automatically
+
+The dashboard lets you manage providers, configure routing, view logs, and install presets — all from a sleek dark UI.
 
 ---
 
