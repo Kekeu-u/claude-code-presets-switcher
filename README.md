@@ -195,6 +195,32 @@ Claude Code reads environment variables **before** the settings file. This scrip
 
 ---
 
+## 🛡️ Best Practices & Safety
+
+To avoid API bans or unexpected costs, follow these guidelines:
+
+### 1. API Keys are Sensitive
+- **NEVER** commit your `.json` presets to public repositories.
+- The `.gitignore` in this repo already excludes `*.json` in the presets folder, but double-check before pushing.
+- If you suspect a key leak, revoke it immediately in your provider's dashboard.
+
+### 2. Respect Rate Limits
+- Claude Code can make **many requests very quickly**, especially with "Smart Router".
+- **Monitor your usage** in the provider's dashboard (OpenRouter, DeepSeek, etc.).
+- Set **Hard Limits** ($) in your provider's billing settings to prevent runaway costs.
+
+### 3. Loop Protection
+- Claude Code is an agent; it can get stuck in loops (creating files, deleting them, repeating).
+- **Control + C** is your friend. If it seems stuck, kill it.
+- Use `verbose` mode (`claude --verbose`) if you suspect it's looping without output.
+
+### 4. Terms of Service (ToS)
+- You are subject to **both** Anthropic's ToS (for the client) and your Provider's ToS (for the API).
+- Avoid generating prohibited content. Providers often have automated flags for NSFW/Illegal content.
+- Repeated violations WILL get your API key banned.
+
+---
+
 ## 🤝 Contributing
 
 1. Fork this repo
