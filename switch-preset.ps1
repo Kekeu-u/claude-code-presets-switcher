@@ -333,6 +333,7 @@ Show-Separator
 Prompt-LaunchClaude
 
 
+
 if ($ok) {
     Write-Host "  ✅ Todas as env vars configuradas" -ForegroundColor Green
 }
