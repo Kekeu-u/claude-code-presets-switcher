@@ -1,6 +1,7 @@
 # Sensitive files
 oauth-backup.json
 .active-preset
+presets/gemini.json
 
 # Pasta pessoal (rascunhos, posts, estudos)
 .pessoal/

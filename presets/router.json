@@ -1,7 +1,7 @@
 {
     "_preset": {
         "name": "Smart Router",
-        "description": "Kimi (Main) + Gemini 3.0 (Background/Context) + GLM/MiniMax (Bkp)",
+        "description": "Gemini 3 Pro (Opus) + Flash (Haiku) - Smart Routing",
         "created": "2026-02-15"
     },
     "env": {

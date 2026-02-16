@@ -79,9 +79,8 @@ cmodel              # Interactive menu (↑↓ + Enter)
 cmodel kimi          # Switch directly
 cmodel glm           # Switch directly
 cmodel minimax       # Switch directly
-cmodel gemini        # Switch to Google AI Studio
 cmodel anthropic     # Back to official Claude (OAuth)
-cmodel router        # Use Smart Router (CCR)
+cmodel router        # Use Smart Router (CCR) with Gemini 3 Pro/Flash
 cmodel -List         # List available presets
 cmodel -Status       # Show active preset
 ```
@@ -99,8 +98,7 @@ After switching, the script asks: **🚀 Launch Claude Code now?**
 | `kimi` | [Moonshot AI](https://kimi.ai) | Kimi K2.5 (Sonnet/Opus) + Kimi for Coding (Haiku) | [docs](https://platform.moonshot.cn/docs) |
 | `glm` | [Z.AI (Zhipu)](https://z.ai) | GLM-4.7 (all slots) | [docs](https://docs.z.ai/devpack/tool/claude) |
 | `minimax` | [MiniMax](https://minimax.io) | M2.5 (Sonnet/Opus) + M2.1 (Haiku) | [docs](https://platform.minimax.io) |
-| `gemini` | [Google AI Studio](https://aistudio.google.com) | Gemini 2.5 Pro + Flash | [docs](https://ai.google.dev/gemini-api/docs/openai) |
-| `router` | [CCR](https://github.com/musistudio/claude-code-router) | Smart routing across providers | [docs](https://github.com/musistudio/claude-code-router) |
+| `router` | [CCR](https://github.com/musistudio/claude-code-router) | **Gemini 3 Pro (Opus)** + **Flash (Haiku)** + Smart Routing | [docs](https://github.com/musistudio/claude-code-router) |
 
 > **Add your own**: Just create a new `.json` following the same format. `cmodel` auto-detects it.
 
