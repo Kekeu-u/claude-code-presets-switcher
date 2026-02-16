@@ -3,7 +3,7 @@
 > **Switch between AI providers in Claude Code CLI with a single command.**
 > Use Kimi, GLM, MiniMax, Smart Router, or plain Anthropic — no config file editing needed.
 
-[![PowerShell](https://img.shields.io/badge/PowerShell-7%2B-blue?logo=powershell&logoColor=white)](https://github.com/PowerShell/PowerShell)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell&logoColor=white)](https://github.com/PowerShell/PowerShell)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-blueviolet?logo=anthropic&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
 
@@ -24,7 +24,7 @@
 
 ## 📋 Requirements
 
-- **Windows** + **PowerShell 7+** → `winget install Microsoft.PowerShell`
+- **Windows** + **PowerShell 5.1+** (Windows 10/11 default)
 - **Claude Code CLI** installed and logged in at least once
 - API key from your desired provider (Kimi, GLM, MiniMax, etc.)
 
@@ -32,10 +32,10 @@
 
 ## 🚀 Quick Start
 
-Open **PowerShell 7+** and run:
+Open **PowerShell** and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/Kekeu-u/claude-code-presets-switcher/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Kekeu-u/claude-code-presets-switcher/main/i | iex
 ```
 
 This will:
