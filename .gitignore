@@ -2,6 +2,9 @@
 oauth-backup.json
 .active-preset
 
+# Pasta pessoal (rascunhos, posts, estudos)
+.pessoal/
+
 # OS
 Thumbs.db
 .DS_Store
