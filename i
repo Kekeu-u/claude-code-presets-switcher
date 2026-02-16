@@ -94,17 +94,11 @@ function Write-Mini { param([string]$msg) Write-Host "        $msg" -ForegroundC
 
 Clear-Host
 Write-Host ""
-Write-Sep
-Write-Host ""
-Write-Host "      " -NoNewline
-Write-Host $t.banner_title -ForegroundColor Green
-Write-Host "      $($t.banner_sub)" -ForegroundColor DarkGray
-Write-Host "      by " -ForegroundColor DarkGray -NoNewline
-Write-Host "kekeu" -ForegroundColor Green -NoNewline
-Write-Host " " -NoNewline
-Write-Host ([char]0xD83D + [char]0xDC09) -ErrorAction SilentlyContinue 2>$null
-Write-Host ""
-Write-Sep
+Write-Host "         __        _ " -ForegroundColor DarkGreen
+Write-Host "       _/  \    _(\(o" -ForegroundColor DarkGreen
+Write-Host "      ( \  `---'   \ " -ForegroundColor DarkGreen -NoNewline; Write-Host "   $($t.banner_title)" -ForegroundColor Green
+Write-Host "       )   \     |_| " -ForegroundColor DarkGreen -NoNewline; Write-Host "   $($t.banner_sub)" -ForegroundColor DarkGray
+Write-Host "      (  )__)____/   " -ForegroundColor DarkGreen -NoNewline; Write-Host "   by kekeu" -ForegroundColor DarkGray
 Write-Host ""
 
 # ─── Step 1: Language ──────────────────────────────────────
