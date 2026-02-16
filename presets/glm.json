@@ -1,0 +1,19 @@
+{
+    "_preset": {
+        "name": "GLM (Z.AI)",
+        "description": "GLM-4.7 (Sonnet/Opus/Haiku) via Z.AI",
+        "created": "2026-02-14",
+        "docs": "https://docs.z.ai/devpack/tool/claude"
+    },
+    "env": {
+        "API_TIMEOUT_MS": "3000000",
+        "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "ANTHROPIC_MODEL": "glm-4.7",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-4.7",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
+        "ANTHROPIC_SMALL_FAST_MODEL": "glm-4.7",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    }
+}

@@ -1,2 +1,11 @@
+# Sensitive files
 oauth-backup.json
 .active-preset
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
