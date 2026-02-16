@@ -331,16 +331,3 @@ else {
 Write-Host ""
 Show-Separator
 Prompt-LaunchClaude
-
-
-
-if ($ok) {
-    Write-Host "  ✅ Todas as env vars configuradas" -ForegroundColor Green
-}
-else {
-    Write-Host "  ⚠️  Algumas env vars não foram definidas!" -ForegroundColor Red
-}
-
-Write-Host ""
-Show-Separator
-Prompt-LaunchClaude

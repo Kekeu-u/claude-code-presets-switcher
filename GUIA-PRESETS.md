@@ -431,6 +431,30 @@ Crie um `.json` por provedor em `$env:USERPROFILE\.claude\presets\`. Troque `ANT
 }
 ```
 
+**Exemplo — `gemini.json` (Google AI Studio):**
+
+```json
+{
+    "_preset": {
+        "name": "Gemini (Google AI Studio)",
+        "description": "Gemini 2.5 Pro (Opus) + Flash (Haiku)",
+        "created": "2026-02-16",
+        "docs": "https://ai.google.dev/gemini-api/docs/openai"
+    },
+    "env": {
+        "API_TIMEOUT_MS": "3000000",
+        "ANTHROPIC_BASE_URL": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "ANTHROPIC_AUTH_TOKEN": "COLE_SUA_KEY_AQUI",
+        "ANTHROPIC_MODEL": "gemini-2.5-pro-preview-03-25",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "gemini-2.5-pro-preview-03-25",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "gemini-2.5-pro-preview-03-25",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gemini-2.0-flash",
+        "ANTHROPIC_SMALL_FAST_MODEL": "gemini-2.0-flash",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    }
+}
+```
+
 > **Adicionar novos provedores**: basta criar outro `.json` seguindo o mesmo formato. O `cmodel` detecta automaticamente.
 
 ### Passo 4 — Configurar o alias no PowerShell
@@ -472,6 +496,7 @@ cmodel              # Menu interativo (setas ↑↓ + Enter)
 cmodel kimi          # Troca direto
 cmodel glm           # Troca direto
 cmodel minimax       # Troca direto
+cmodel gemini        # Google AI Studio (Gemini)
 cmodel anthropic     # Volta pro Claude oficial (OAuth)
 cmodel -List         # Lista presets
 cmodel -Status       # Mostra qual está ativo
@@ -648,6 +673,7 @@ O Claude Code CLI lê variáveis de ambiente **antes** do arquivo `settings`. O 
     ├── kimi.json         ← Preset Kimi
     ├── glm.json          ← Preset GLM
     ├── minimax.json      ← Preset MiniMax
+    ├── gemini.json       ← Preset Gemini (Google AI Studio)
     ├── .active-preset    ← Auto-gerado (último preset)
     └── oauth-backup.json ← Auto-gerado (backup OAuth)
 ```
