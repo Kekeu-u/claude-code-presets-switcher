@@ -62,6 +62,53 @@ function Write-SettingsFile {
     [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
 }
 
+function Get-PresetEnvVarNames {
+    $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($name in $claudeEnvVars) {
+        [void]$names.Add($name)
+    }
+
+    if (Test-Path $presetsDir) {
+        Get-ChildItem $presetsDir -Filter "*.json" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne "oauth-backup.json" } |
+            ForEach-Object {
+                try {
+                    $preset = Get-Content $_.FullName -Raw | ConvertFrom-Json
+                    if ($preset -and $preset.env) {
+                        foreach ($prop in $preset.env.PSObject.Properties) {
+                            if ($prop.Name) {
+                                [void]$names.Add($prop.Name)
+                            }
+                        }
+                    }
+                }
+                catch {
+                    # Ignore malformed preset files during cleanup discovery.
+                }
+            }
+    }
+
+    return @($names)
+}
+
+function Clear-ClaudeEnvVars {
+    param([string[]]$Keep = @())
+
+    $keepSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $Keep) {
+        if ($name) {
+            [void]$keepSet.Add($name)
+        }
+    }
+
+    foreach ($varName in (Get-PresetEnvVarNames)) {
+        if ($keepSet.Contains($varName)) { continue }
+        [Environment]::SetEnvironmentVariable($varName, $null, "User")
+        [Environment]::SetEnvironmentVariable($varName, $null, "Process")
+    }
+}
+
 function Get-ActivePreset {
     if (Test-Path $activePresetFile) {
         return (Get-Content $activePresetFile -Raw).Trim()
@@ -96,10 +143,7 @@ function Apply-Preset {
     param([string]$Name)
 
     if ($Name -eq "anthropic") {
-        foreach ($varName in $claudeEnvVars) {
-            [Environment]::SetEnvironmentVariable($varName, $null, "User")
-            [Environment]::SetEnvironmentVariable($varName, $null, "Process")
-        }
+        Clear-ClaudeEnvVars
         Restore-OAuthToSettings
         Set-ActivePreset "anthropic"
         return $null
@@ -111,9 +155,19 @@ function Apply-Preset {
     $preset = Get-Content $presetFile -Raw | ConvertFrom-Json
     Restore-OAuthToSettings
 
-    foreach ($prop in $preset.env.PSObject.Properties) {
-        [Environment]::SetEnvironmentVariable($prop.Name, $prop.Value, "User")
-        [Environment]::SetEnvironmentVariable($prop.Name, $prop.Value, "Process")
+    $keepEnvVars = @()
+    if ($preset.env) {
+        $keepEnvVars = @($preset.env.PSObject.Properties | ForEach-Object { $_.Name } | Where-Object { $_ })
+    }
+
+    # Prevent stale variables from previous presets leaking into the next one.
+    Clear-ClaudeEnvVars -Keep $keepEnvVars
+
+    if ($preset.env) {
+        foreach ($prop in $preset.env.PSObject.Properties) {
+            [Environment]::SetEnvironmentVariable($prop.Name, $prop.Value, "User")
+            [Environment]::SetEnvironmentVariable($prop.Name, $prop.Value, "Process")
+        }
     }
 
     # Auto-start CCR se o preset usar localhost:3000
@@ -133,7 +187,7 @@ function Apply-Preset {
 
 function Prompt-LaunchClaude {
     Write-Host ""
-    Write-Host "  � Iniciar Claude Code agora? " -ForegroundColor Green -NoNewline
+    Write-Host "  > Iniciar Claude Code agora? " -ForegroundColor Green -NoNewline
     Write-Host "[Enter = Sim / Q = Não]" -ForegroundColor DarkGray
 
     $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -246,7 +300,7 @@ if ($Status) {
         Write-Host $env:ANTHROPIC_MODEL -ForegroundColor Green
     }
     else {
-        Write-Host "  � Usando Anthropic OAuth" -ForegroundColor Gray
+        Write-Host "  > Usando Anthropic OAuth" -ForegroundColor Gray
     }
     Write-Host ""
     Show-Separator

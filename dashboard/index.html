@@ -600,7 +600,7 @@
     <div class="sidebar__status">
       <div class="sidebar__brand">
         <a href="https://github.com/Kekeu-u/claude-code-presets-switcher" target="_blank" class="sidebar__brand-link">by<br><strong>kekeu</strong> 🐉</a>
-        <span class="sidebar__brand-ver">v1.0.0</span>
+        <span class="sidebar__brand-ver">v1.1.0</span>
       </div>
       <div class="sidebar__dot" id="status-dot"></div>
       <div class="sidebar__port" id="status-text">...</div>
@@ -710,12 +710,185 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const API = '';
+const ROUTE_FIELDS = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'];
+let rawConfig = null;
 let config = null;
+let configFormat = {
+  providersMode: 'object',
+  providersKey: 'providers',
+  providerTemplates: {},
+  routerKey: 'router',
+};
 let ccrOnline = false;
-let logRefreshInterval = null;
 let allModels = [];
 let editingProviderIndex = -1;
 let retryTimer = null;
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => (
+    ch === '&' ? '&amp;' :
+    ch === '<' ? '&lt;' :
+    ch === '>' ? '&gt;' :
+    ch === '"' ? '&quot;' : '&#39;'
+  ));
+}
+
+function decodeArg(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value ?? {}));
+}
+
+function providerFromRaw(provider, fallbackName = '') {
+  const p = (provider && typeof provider === 'object') ? provider : {};
+  return {
+    name: String(p.name || fallbackName || '').trim(),
+    baseUrl: String(p.baseUrl || p.base_url || p.api_base_url || '').trim(),
+    apiKey: String(p.apiKey || p.api_key || '').trim(),
+    models: Array.isArray(p.models) ? p.models.filter(Boolean).map((m) => String(m)) : [],
+  };
+}
+
+function normalizeConfig(data) {
+  const source = (data && typeof data === 'object') ? data : {};
+  const normalizedProviders = {};
+  const providerTemplates = {};
+
+  let providersMode = 'object';
+  let providersKey = 'providers';
+  let providersSource = {};
+
+  if (Array.isArray(source.Providers)) {
+    providersMode = 'array';
+    providersKey = 'Providers';
+    providersSource = source.Providers;
+  } else if (Array.isArray(source.providers)) {
+    providersMode = 'array';
+    providersKey = 'providers';
+    providersSource = source.providers;
+  } else if (source.Providers && typeof source.Providers === 'object') {
+    providersMode = 'object';
+    providersKey = 'Providers';
+    providersSource = source.Providers;
+  } else if (source.providers && typeof source.providers === 'object') {
+    providersMode = 'object';
+    providersKey = 'providers';
+    providersSource = source.providers;
+  }
+
+  if (providersMode === 'array') {
+    providersSource.forEach((item, index) => {
+      const provider = providerFromRaw(item, `provider-${index + 1}`);
+      if (!provider.name) return;
+      normalizedProviders[provider.name] = {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        models: provider.models,
+      };
+      providerTemplates[provider.name] = { ...(item || {}) };
+    });
+  } else {
+    Object.entries(providersSource || {}).forEach(([name, item]) => {
+      const provider = providerFromRaw(item, name);
+      if (!provider.name) return;
+      normalizedProviders[provider.name] = {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        models: provider.models,
+      };
+      providerTemplates[provider.name] = { ...(item || {}) };
+    });
+  }
+
+  let routerKey = 'router';
+  let routerSource = {};
+  if (source.router && typeof source.router === 'object' && !Array.isArray(source.router)) {
+    routerKey = 'router';
+    routerSource = source.router;
+  } else if (source.Router && typeof source.Router === 'object' && !Array.isArray(source.Router)) {
+    routerKey = 'Router';
+    routerSource = source.Router;
+  }
+
+  const uiConfig = {
+    ...source,
+    HOST: source.HOST ?? source.host ?? '127.0.0.1',
+    PORT: source.PORT ?? source.port ?? 3000,
+    API_TIMEOUT_MS: source.API_TIMEOUT_MS ?? source.apiTimeoutMs ?? 600000,
+    NON_INTERACTIVE: source.NON_INTERACTIVE ?? source.nonInteractive ?? false,
+    providers: normalizedProviders,
+    router: { ...routerSource },
+  };
+
+  return {
+    config: uiConfig,
+    format: {
+      providersMode,
+      providersKey,
+      providerTemplates,
+      routerKey,
+    },
+  };
+}
+
+function mergeProviderTemplate(template, provider, mode) {
+  const merged = (template && typeof template === 'object') ? { ...template } : {};
+  const baseUrl = provider.baseUrl || '';
+  const apiKey = provider.apiKey || '';
+  const models = Array.isArray(provider.models) ? provider.models : [];
+
+  if (mode === 'array') merged.name = provider.name;
+
+  const hasBaseUrlAlias =
+    Object.prototype.hasOwnProperty.call(merged, 'baseUrl') ||
+    Object.prototype.hasOwnProperty.call(merged, 'base_url') ||
+    Object.prototype.hasOwnProperty.call(merged, 'api_base_url');
+  if (Object.prototype.hasOwnProperty.call(merged, 'baseUrl')) merged.baseUrl = baseUrl;
+  if (Object.prototype.hasOwnProperty.call(merged, 'base_url')) merged.base_url = baseUrl;
+  if (Object.prototype.hasOwnProperty.call(merged, 'api_base_url')) merged.api_base_url = baseUrl;
+  if (!hasBaseUrlAlias) merged[mode === 'array' ? 'api_base_url' : 'baseUrl'] = baseUrl;
+
+  const hasApiKeyAlias =
+    Object.prototype.hasOwnProperty.call(merged, 'apiKey') ||
+    Object.prototype.hasOwnProperty.call(merged, 'api_key');
+  if (Object.prototype.hasOwnProperty.call(merged, 'apiKey')) merged.apiKey = apiKey;
+  if (Object.prototype.hasOwnProperty.call(merged, 'api_key')) merged.api_key = apiKey;
+  if (!hasApiKeyAlias) merged[mode === 'array' ? 'api_key' : 'apiKey'] = apiKey;
+
+  merged.models = models;
+  return merged;
+}
+
+function buildConfigPayload() {
+  const payload = deepClone(rawConfig || {});
+  const providersEntries = Object.entries(config?.providers || {});
+  const isArrayMode = configFormat.providersMode === 'array';
+
+  if (isArrayMode) {
+    payload[configFormat.providersKey] = providersEntries.map(([name, provider]) =>
+      mergeProviderTemplate(configFormat.providerTemplates[name], { ...provider, name }, 'array')
+    );
+  } else {
+    const providersObject = {};
+    providersEntries.forEach(([name, provider]) => {
+      providersObject[name] = mergeProviderTemplate(configFormat.providerTemplates[name], { ...provider, name }, 'object');
+    });
+    payload[configFormat.providersKey] = providersObject;
+  }
+
+  payload[configFormat.routerKey] = { ...(config?.router || {}) };
+  payload.HOST = config?.HOST;
+  payload.PORT = config?.PORT;
+  payload.API_TIMEOUT_MS = config?.API_TIMEOUT_MS;
+  payload.NON_INTERACTIVE = config?.NON_INTERACTIVE;
+  return payload;
+}
 
 async function apiFetch(path, opts = {}) {
   try {
@@ -774,7 +947,10 @@ const OVERVIEW_TEMPLATE = `
 async function loadConfig() {
   const data = await apiFetch('/api/config');
   if (data) {
-    config = data;
+    rawConfig = data;
+    const normalized = normalizeConfig(data);
+    config = normalized.config;
+    configFormat = normalized.format;
     ccrOnline = true;
     if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
     $('#status-dot').classList.remove('offline');
@@ -809,10 +985,39 @@ async function manualRetry() { await loadConfig(); }
 
 function collectModels() {
   allModels = [];
+  const seen = new Set();
   if (!config?.providers) return;
   Object.entries(config.providers).forEach(([name, p]) => {
-    (p.models || []).forEach(m => allModels.push({ model: m, provider: name }));
+    (p.models || []).forEach(m => {
+      const route = `${name},${m}`;
+      if (seen.has(route)) return;
+      seen.add(route);
+      allModels.push({ model: m, provider: name, route });
+    });
   });
+}
+
+function routeOptionsHtml(currentValue) {
+  const normalizedCurrent = String(currentValue || '').trim();
+  const options = ['<option value="">— select —</option>'];
+  const seen = new Set();
+  let matched = false;
+
+  allModels.forEach((m) => {
+    if (seen.has(m.route)) return;
+    seen.add(m.route);
+    const isSelected = normalizedCurrent && (normalizedCurrent === m.route || normalizedCurrent === m.model);
+    if (isSelected) matched = true;
+    options.push(
+      `<option value="${escapeHtml(m.route)}" ${isSelected ? 'selected' : ''}>${escapeHtml(m.model)} (${escapeHtml(m.provider)})</option>`
+    );
+  });
+
+  if (normalizedCurrent && !matched) {
+    options.push(`<option value="${escapeHtml(normalizedCurrent)}" selected>${escapeHtml(normalizedCurrent)} (custom)</option>`);
+  }
+
+  return options.join('');
 }
 
 // ── Render Overview ──
@@ -826,24 +1031,23 @@ function renderOverview() {
     <div class="stat stat--green"><span class="stat__icon">🌐</span><span class="stat__value">${config.PORT || 3000}</span><span class="stat__label">Port</span></div>
     <div class="stat stat--yellow"><span class="stat__icon">⏱</span><span class="stat__value">${Math.round((config.API_TIMEOUT_MS || 600000) / 60000)}m</span><span class="stat__label">Timeout</span></div>`;
 
-  const routerKeys = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'];
   const stripeColors = ['teal', 'blue', 'green', 'orange', 'pink', 'red'];
   const r = config.router || {};
-  $('#overview-router').innerHTML = routerKeys.map((k, i) => {
+  $('#overview-router').innerHTML = ROUTE_FIELDS.map((k, i) => {
     const v = r[k] || 'not set';
     return `<div class="card">
       <div class="card__stripe card__stripe--${stripeColors[i % stripeColors.length]}"></div>
       <div class="card__header">
-        <div class="card__title">${k}</div>
-        <span class="badge badge--${stripeColors[i % stripeColors.length]}">${k}</span>
+        <div class="card__title">${escapeHtml(k)}</div>
+        <span class="badge badge--${stripeColors[i % stripeColors.length]}">${escapeHtml(k)}</span>
       </div>
-      <div style="font-family:monospace;font-size:11px;color:var(--text-secondary);word-break:break-all">${v}</div>
+      <div style="font-family:monospace;font-size:11px;color:var(--text-secondary);word-break:break-all">${escapeHtml(v)}</div>
     </div>`;
   }).join('');
 
   const settings = { HOST: config.HOST, PORT: config.PORT, API_TIMEOUT_MS: config.API_TIMEOUT_MS, NON_INTERACTIVE: config.NON_INTERACTIVE, longContextThreshold: r.longContextThreshold };
   $('#overview-general').innerHTML = `<table><tbody>${Object.entries(settings).map(([k, v]) =>
-    `<tr><td>${k}</td><td>${v ?? '—'}</td></tr>`
+    `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v ?? '—')}</td></tr>`
   ).join('')}</tbody></table>`;
 }
 
@@ -852,44 +1056,45 @@ function renderProviders() {
   if (!config?.providers) return;
   const stripes = ['teal', 'blue', 'green', 'orange', 'pink', 'red'];
   const entries = Object.entries(config.providers);
-  $('#providers-list').innerHTML = entries.map(([name, p], i) =>
-    `<div class="card">
+  $('#providers-list').innerHTML = entries.map(([name, p], i) => {
+    const encodedName = encodeURIComponent(name);
+    const models = Array.isArray(p.models) ? p.models : [];
+    const host = String(p.baseUrl || '').replace(/https?:\/\//, '').split('/')[0] || '—';
+    const masked = p.apiKey ? '••••' + String(p.apiKey).slice(-4) : 'none';
+    return `<div class="card">
       <div class="card__stripe card__stripe--${stripes[i % stripes.length]}"></div>
       <div class="card__header">
-        <div class="card__title">${name}</div>
+        <div class="card__title">${escapeHtml(name)}</div>
         <div class="card__actions">
-          <button class="card__action" onclick="testProvider('${name}')" title="Test">🧪</button>
+          <button class="card__action" onclick="testProvider('${encodedName}')" title="Test">🧪</button>
           <button class="card__action" onclick="editProvider(${i})" title="Edit">✏️</button>
-          <button class="card__action card__action--danger" onclick="deleteProvider('${name}')" title="Delete">🗑</button>
+          <button class="card__action card__action--danger" onclick="deleteProvider('${encodedName}')" title="Delete">🗑</button>
         </div>
       </div>
       <div class="card__meta">
-        ${(p.models || []).map(m => `<span class="badge badge--ghost">${m}</span>`).join('')}
+        ${models.map(m => `<span class="badge badge--ghost">${escapeHtml(m)}</span>`).join('')}
       </div>
       <div class="card__footer">
-        <span class="card__footer-item">🌐 ${(p.baseUrl || '').replace(/https?:\/\//, '').split('/')[0]}</span>
-        <span class="card__footer-item">🔑 ${p.apiKey ? '••••' + p.apiKey.slice(-4) : 'none'}</span>
+        <span class="card__footer-item">🌐 ${escapeHtml(host)}</span>
+        <span class="card__footer-item">🔑 ${escapeHtml(masked)}</span>
       </div>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Render Router ──
 function renderRouter() {
   if (!config) return;
   const r = config.router || {};
-  const fields = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'];
   const stripes = ['teal', 'blue', 'green', 'orange', 'pink', 'red'];
-  const modelOpts = allModels.map(m => `<option value="${m.model}" ${r[fields[0]] === m.model ? '' : ''}>${m.model} (${m.provider})</option>`).join('');
 
-  $('#router-fields').innerHTML = fields.map((f, i) => `
+  $('#router-fields').innerHTML = ROUTE_FIELDS.map((f, i) => `
     <div class="card">
       <div class="card__stripe card__stripe--${stripes[i]}"></div>
-      <div class="card__header"><div class="card__title">${f}</div><span class="badge badge--${stripes[i]}">${f}</span></div>
+      <div class="card__header"><div class="card__title">${escapeHtml(f)}</div><span class="badge badge--${stripes[i]}">${escapeHtml(f)}</span></div>
       <div class="form-group" style="margin:0">
         <select id="route-${f}" style="margin-top:6px">
-          <option value="">— select —</option>
-          ${allModels.map(m => `<option value="${m.model}" ${(r[f] || '') === m.model ? 'selected' : ''}>${m.model} (${m.provider})</option>`).join('')}
+          ${routeOptionsHtml(r[f])}
         </select>
       </div>
     </div>
@@ -923,13 +1128,24 @@ function openProviderModal(idx) {
   openModal('modal-provider');
 }
 
+function editProvider(idx) {
+  openProviderModal(idx);
+}
+
 async function saveProvider() {
   const name = $('#prov-name').value.trim();
   if (!name) return toast('Name required', 'error');
   if (!config.providers) config.providers = {};
+  if (!configFormat.providerTemplates) configFormat.providerTemplates = {};
   if (editingProviderIndex >= 0) {
     const oldName = Object.keys(config.providers)[editingProviderIndex];
-    if (oldName !== name) delete config.providers[oldName];
+    if (oldName && oldName !== name) {
+      delete config.providers[oldName];
+      if (configFormat.providerTemplates[oldName]) {
+        configFormat.providerTemplates[name] = configFormat.providerTemplates[oldName];
+        delete configFormat.providerTemplates[oldName];
+      }
+    }
   }
   config.providers[name] = {
     baseUrl: $('#prov-url').value.trim(),
@@ -940,34 +1156,50 @@ async function saveProvider() {
   await saveConfig();
 }
 
-async function deleteProvider(name) {
+async function deleteProvider(encodedName) {
+  const name = decodeArg(encodedName);
   if (!confirm(`Delete provider "${name}"?`)) return;
   delete config.providers[name];
+  if (configFormat.providerTemplates?.[name]) {
+    delete configFormat.providerTemplates[name];
+  }
   await saveConfig();
 }
 
-async function testProvider(name) {
-  toast(`Testing ${name}…`, 'info');
+async function testProvider(encodedName) {
+  const name = decodeArg(encodedName);
   const p = config.providers[name];
+  if (!p?.baseUrl) {
+    toast(`${name}: Base URL missing`, 'error');
+    return;
+  }
+
+  toast(`Testing ${name}…`, 'info');
   try {
-    const r = await fetch(`${p.baseUrl}/models`, { headers: { Authorization: `Bearer ${p.apiKey}` } });
+    const r = await fetch(`${p.baseUrl.replace(/\/$/, '')}/models`, {
+      headers: p.apiKey ? { Authorization: `Bearer ${p.apiKey}` } : {},
+    });
     toast(r.ok ? `${name}: Connected ✓` : `${name}: HTTP ${r.status}`, r.ok ? 'success' : 'error');
   } catch { toast(`${name}: Connection failed`, 'error'); }
 }
 
 // ── Save & Restart ──
 async function saveConfig() {
-  const routeFields = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'];
   if (!config.router) config.router = {};
-  routeFields.forEach(f => {
+  ROUTE_FIELDS.forEach(f => {
     const el = $(`#route-${f}`);
-    if (el) config.router[f] = el.value;
+    if (el) config.router[f] = el.value.trim();
   });
   const thEl = $('#route-threshold');
-  if (thEl) config.router.longContextThreshold = parseInt(thEl.value) || 50000;
+  if (thEl) {
+    const threshold = parseInt(thEl.value, 10);
+    config.router.longContextThreshold = Number.isFinite(threshold) ? threshold : 50000;
+  }
 
-  const r = await apiFetch('/api/config', { method: 'POST', body: JSON.stringify(config) });
+  const payload = buildConfigPayload();
+  const r = await apiFetch('/api/config', { method: 'POST', body: JSON.stringify(payload) });
   if (r) {
+    rawConfig = payload;
     toast('Config saved', 'success');
     await apiFetch('/api/restart', { method: 'POST' });
     toast('CCR restarting…', 'info');
@@ -992,13 +1224,13 @@ async function checkUpdate() {
 async function loadLogFiles() {
   const files = await apiFetch('/api/logs/files');
   if (files?.length) {
-    $('#log-file-select').innerHTML = files.map(f => `<option value="${f}">${f}</option>`).join('');
+    $('#log-file-select').innerHTML = files.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
   }
 }
 
 async function loadLogs() {
   const file = $('#log-file-select')?.value;
-  const data = await apiFetch(`/api/logs${file ? `?file=${file}` : ''}`);
+  const data = await apiFetch(`/api/logs${file ? `?file=${encodeURIComponent(file)}` : ''}`);
   $('#log-content').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
 }
 
@@ -1010,30 +1242,36 @@ async function loadPresets() {
     return;
   }
   const stripes = ['teal', 'blue', 'green', 'orange', 'pink'];
-  $('#presets-list').innerHTML = data.map((p, i) => `
-    <div class="card">
-      <div class="card__stripe card__stripe--${stripes[i % stripes.length]}"></div>
-      <div class="card__header">
-        <div class="card__title">${p.name || p}</div>
-        <div class="card__actions">
-          <button class="card__action card__action--accent" onclick="applyPreset('${p.name || p}')" title="Apply">▶</button>
-          <button class="card__action card__action--danger" onclick="deletePreset('${p.name || p}')" title="Delete">🗑</button>
+  $('#presets-list').innerHTML = data.map((p, i) => {
+    const name = typeof p === 'string' ? p : (p.name || '');
+    const description = typeof p === 'string' ? '' : (p.description || '');
+    const encodedName = encodeURIComponent(name);
+    return `
+      <div class="card">
+        <div class="card__stripe card__stripe--${stripes[i % stripes.length]}"></div>
+        <div class="card__header">
+          <div class="card__title">${escapeHtml(name)}</div>
+          <div class="card__actions">
+            <button class="card__action card__action--accent" onclick="applyPreset('${encodedName}')" title="Apply">▶</button>
+            <button class="card__action card__action--danger" onclick="deletePreset('${encodedName}')" title="Delete">🗑</button>
+          </div>
         </div>
-      </div>
-      ${p.description ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">${p.description}</div>` : ''}
-    </div>`
-  ).join('');
+        ${description ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">${escapeHtml(description)}</div>` : ''}
+      </div>`;
+  }).join('');
 }
 
-async function applyPreset(name) {
-  const r = await apiFetch(`/api/presets/${name}/apply`, { method: 'POST' });
+async function applyPreset(encodedName) {
+  const name = decodeArg(encodedName);
+  const r = await apiFetch(`/api/presets/${encodeURIComponent(name)}/apply`, { method: 'POST' });
   if (r) { toast(`Preset "${name}" applied`, 'success'); loadConfig(); }
   else toast('Failed to apply', 'error');
 }
 
-async function deletePreset(name) {
+async function deletePreset(encodedName) {
+  const name = decodeArg(encodedName);
   if (!confirm(`Delete preset "${name}"?`)) return;
-  const r = await apiFetch(`/api/presets/${name}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/presets/${encodeURIComponent(name)}`, { method: 'DELETE' });
   if (r !== null) { toast('Deleted', 'success'); loadPresets(); }
   else toast('Failed', 'error');
 }

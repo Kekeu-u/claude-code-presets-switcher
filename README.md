@@ -18,7 +18,19 @@
 - 🚀 **Auto-launch** — optionally starts Claude Code after switching
 - 🌐 **Smart Router support** — use [Claude Code Router (CCR)](https://github.com/musistudio/claude-code-router) to route requests to the best model per task
 - 📊 **CCR Dashboard** — real-time visual dashboard to manage your router
+- 🛡️ **Hardened dashboard server** — local-only binding (`127.0.0.1`), safer static file handling, proxy timeout
+- 🧠 **CCR config compatibility** — works with both `providers/router` and `Providers/Router` config styles
+- 🧹 **Cleaner preset switching** — removes stale env vars between presets to avoid cross-provider leakage
 - 📥 **One-liner install** — bilingual installer (EN/PT-BR) with Desktop reference guide
+
+---
+
+## 🆕 Latest Update (2026-02-21)
+
+- Fixed dashboard route persistence to save full route values (`provider,model`) instead of model-only values.
+- Improved dashboard rendering safety for provider/preset names before writing to HTML.
+- Added local launcher hardening in `ccr-dash` (portable path + `ccr` presence check).
+- Improved preset switching reliability by clearing env vars not used by the selected preset.
 
 ---
 
@@ -149,7 +161,7 @@ ccr-dash        # Open dashboard manually
 When you select a CCR preset, `cmodel` will:
 
 1. **Auto-start the router** on port 3000
-2. **Launch the CCR Dashboard** on [localhost:3456](http://localhost:3456)
+2. **Launch the CCR Dashboard** on [localhost:3456](http://localhost:3456) (bound to `127.0.0.1`)
 3. **Open your browser** automatically
 
 The dashboard lets you manage providers, configure routing, view logs, and install presets — all from a sleek dark UI.
@@ -192,6 +204,7 @@ Claude Code reads environment variables **before** the settings file. This scrip
 | Model doesn't change | Exit Claude (`/exit`) and reopen after `cmodel` |
 | Script error | Confirm PowerShell **7+**: `$PSVersionTable.PSVersion` |
 | Router won't start | Install Node.js + `npm i -g @musistudio/claude-code-router` |
+| `ccr-dash` says `ccr` not found | Install CCR globally: `npm install -g @musistudio/claude-code-router` |
 
 ---
 
