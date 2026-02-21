@@ -18,9 +18,11 @@ param(
 )
 
 $presetsDir = "$env:USERPROFILE\.claude\presets"
-$settingsPath = "$env:USERPROFILE\.claude\settings"
-$oauthBackupPath = "$env:USERPROFILE\.claude\presets\oauth-backup.json"
 $activePresetFile = "$env:USERPROFILE\.claude\presets\.active-preset"
+
+# Safety rule:
+# This script never rewrites ~/.claude/settings to avoid affecting MCP/plugin config.
+# It only changes provider-related environment variables.
 
 # Env vars que controlam o Claude Code
 $claudeEnvVars = @(
@@ -55,12 +57,6 @@ function Show-Separator {
 }
 
 # ─── Helpers ───────────────────────────────────────────────
-
-function Write-SettingsFile {
-    param([PSCustomObject]$Settings, [string]$Path)
-    $json = $Settings | ConvertTo-Json -Depth 10
-    [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
-}
 
 function Get-PresetEnvVarNames {
     $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -121,30 +117,11 @@ function Set-ActivePreset {
     $Name | Set-Content $activePresetFile -Encoding utf8NoBOM -NoNewline
 }
 
-function Restore-OAuthToSettings {
-    if (-not (Test-Path $settingsPath)) { return }
-
-    $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-
-    if (-not $settings.PSObject.Properties['oauthAccount']) {
-        if (Test-Path $oauthBackupPath) {
-            $oauth = Get-Content $oauthBackupPath -Raw | ConvertFrom-Json
-            $settings | Add-Member -NotePropertyName "oauthAccount" -NotePropertyValue $oauth -Force
-        }
-    }
-
-    if ($settings.PSObject.Properties['env']) { $settings.PSObject.Properties.Remove('env') }
-    if ($settings.PSObject.Properties['_comment']) { $settings.PSObject.Properties.Remove('_comment') }
-
-    Write-SettingsFile -Settings $settings -Path $settingsPath
-}
-
 function Apply-Preset {
     param([string]$Name)
 
     if ($Name -eq "anthropic") {
         Clear-ClaudeEnvVars
-        Restore-OAuthToSettings
         Set-ActivePreset "anthropic"
         return $null
     }
@@ -153,7 +130,6 @@ function Apply-Preset {
     if (-not (Test-Path $presetFile)) { return $false }
 
     $preset = Get-Content $presetFile -Raw | ConvertFrom-Json
-    Restore-OAuthToSettings
 
     $keepEnvVars = @()
     if ($preset.env) {
@@ -315,12 +291,6 @@ if ($List) { Show-PresetList; return }
 if (-not $PresetName) {
     $PresetName = Show-PresetMenu
     if (-not $PresetName) { return }
-}
-
-# Validar settings
-if (-not (Test-Path $settingsPath)) {
-    Write-Host "`n  ❌ Arquivo settings não encontrado!`n" -ForegroundColor Red
-    return
 }
 
 # ─── Aplicar Preset ───────────────────────────────────────

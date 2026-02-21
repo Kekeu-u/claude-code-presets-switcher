@@ -31,6 +31,7 @@
 - Improved dashboard rendering safety for provider/preset names before writing to HTML.
 - Added local launcher hardening in `ccr-dash` (portable path + `ccr` presence check).
 - Improved preset switching reliability by clearing env vars not used by the selected preset.
+- `cmodel` now keeps `~/.claude/settings` untouched to preserve MCPs/plugins/user config.
 
 ---
 
