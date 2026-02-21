@@ -1,7 +1,7 @@
 # 📚 Providers — Base de Conhecimento
 
 > Tudo que sabemos sobre cada provedor compatível com Claude Code CLI.
-> Atualizado: 2026-02-16
+> Atualizado: 2026-02-21
 
 ---
 
@@ -179,15 +179,15 @@ O CCR roda um proxy local (porta 3000) que intercepta as requisições do Claude
       "name": "gemini",
       "api_base_url": "https://generativelanguage.googleapis.com/v1beta/models/",
       "api_key": "SUA_KEY",
-      "models": ["gemini-3.0-flash-preview", "gemini-3.0-pro-preview"],
+      "models": ["gemini-3-flash-preview", "gemini-3.1-pro-preview"],
       "transformer": { "use": ["gemini"] }
     }
   ],
   "Router": {
     "default": "kimi,kimi-k2.5",
-    "background": "gemini,gemini-3.0-flash-preview",
+    "background": "gemini,gemini-3-flash-preview",
     "think": "kimi,kimi-k2.5",
-    "longContext": "gemini,gemini-3.0-pro-preview",
+    "longContext": "gemini,gemini-3.1-pro-preview",
     "longContextThreshold": 50000
   }
 }

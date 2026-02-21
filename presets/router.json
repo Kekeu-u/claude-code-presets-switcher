@@ -1,7 +1,7 @@
 {
     "_preset": {
         "name": "Smart Router",
-        "description": "Gemini 3 Pro (Opus) + Flash (Haiku) - Smart Routing",
+        "description": "Gemini 3.1 Pro (Opus) + Flash (Haiku) - Smart Routing",
         "created": "2026-02-15"
     },
     "env": {
