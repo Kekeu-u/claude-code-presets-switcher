@@ -1,0 +1,16 @@
+# Sensitive files
+oauth-backup.json
+.active-preset
+presets/gemini.json
+.firecrawl/
+
+# Pasta pessoal (rascunhos, posts, estudos)
+.pessoal/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

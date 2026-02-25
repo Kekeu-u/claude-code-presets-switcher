@@ -1,0 +1,19 @@
+{
+    "_preset": {
+        "name": "OpenAI OAuth (via CLIProxyAPI)",
+        "description": "Claude Code usando OpenAI OAuth local (Codex/GPT) via 127.0.0.1:8317",
+        "created": "2026-02-22",
+        "docs": "https://help.router-for.me/configuration/provider/codex.html"
+    },
+    "env": {
+        "API_TIMEOUT_MS": "3000000",
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:8317",
+        "ANTHROPIC_AUTH_TOKEN": "sk-dummy",
+        "ANTHROPIC_MODEL": "gpt-5.3-codex(xhigh)",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.3-codex(high)",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.3-codex(xhigh)",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.3-codex-spark(low)",
+        "ANTHROPIC_SMALL_FAST_MODEL": "gpt-5.3-codex-spark(low)",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    }
+}

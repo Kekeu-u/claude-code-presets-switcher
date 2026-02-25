@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCR Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-root: #050505;
+      --bg-deep: #0A0A0A;
+      --bg-card: rgba(255,255,255,0.03);
+      --bg-card-hover: rgba(255,255,255,0.06);
+      --bg-elevated: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.05);
+      --border-hover: rgba(255,255,255,0.10);
+      --text-primary: #fff;
+      --text-secondary: rgba(255,255,255,0.60);
+      --text-tertiary: rgba(255,255,255,0.35);
+      --text-ghost: rgba(255,255,255,0.20);
+      --accent-teal: #14b8a6;
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --accent-orange: #f97316;
+      --accent-pink: #ec4899;
+      --accent-yellow: #eab308;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-root);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 64px;
+      background: var(--bg-deep);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      gap: 4px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 30;
+    }
+    .sidebar__logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .sidebar__logo::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+      opacity: 0.15;
+      z-index: -1;
+    }
+    .sidebar__item {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-tertiary);
+      font-size: 16px;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .sidebar__item:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+    .sidebar__item.active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    .sidebar__item.active::before {
+      content: '';
+      position: absolute;
+      left: -12px;
+      width: 3px;
+      height: 20px;
+      background: var(--accent-teal);
+      border-radius: 0 2px 2px 0;
+    }
+    .sidebar__item[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 52px;
+      background: #1a1a1a;
+      border: 1px solid var(--border-hover);
+      color: var(--text-primary);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      z-index: 50;
+    }
+    .sidebar__status {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar__brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .sidebar__brand-link {
+      font-size: 9px;
+      color: var(--text-ghost);
+      text-decoration: none;
+      transition: color 0.15s;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .sidebar__brand-link:hover { color: var(--accent-teal); }
+    .sidebar__brand-ver {
+      font-size: 8px;
+      color: var(--text-ghost);
+      font-family: monospace;
+    }
+    .sidebar__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 6px rgba(34,197,94,0.4);
+    }
+    .sidebar__dot.offline {
+      background: var(--accent-red);
+      box-shadow: 0 0 6px rgba(239,68,68,0.4);
+    }
+    .sidebar__port {
+      font-size: 9px;
+      color: var(--text-tertiary);
+      writing-mode: vertical-rl;
+      letter-spacing: 1px;
+    }
+
+    /* ── Main Layout ── */
+    .main {
+      margin-left: 64px;
+      flex: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .topbar {
+      height: 48px;
+      background: var(--bg-deep);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .topbar__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .topbar__actions { display: flex; gap: 8px; }
+
+    /* ── Content Area ── */
+    .content {
+      flex: 1;
+      padding: 20px 24px;
+      overflow-y: auto;
+    }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Stat Indicators (kanban style) ── */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      transition: border-color 0.15s;
+    }
+    .stat:hover { border-color: var(--border-hover); }
+    .stat__icon { font-size: 11px; }
+    .stat__value { font-weight: 600; color: var(--text-primary); }
+    .stat__label { font-size: 10px; color: var(--text-tertiary); }
+    .stat--teal { border-color: rgba(20,184,166,0.20); }
+    .stat--blue { border-color: rgba(59,130,246,0.20); }
+    .stat--green { border-color: rgba(34,197,94,0.20); }
+    .stat--red { border-color: rgba(239,68,68,0.20); }
+    .stat--yellow { border-color: rgba(234,179,8,0.20); }
+
+    /* ── Cards (kanban style) ── */
+    .card {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      transition: all 0.15s;
+    }
+    .card:hover { border-color: var(--border-hover); }
+    .card__stripe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      opacity: 0.5;
+    }
+    .card__stripe--teal { background: linear-gradient(90deg, #14b8a6, #06b6d4); }
+    .card__stripe--blue { background: linear-gradient(90deg, #3b82f6, #6366f1); }
+    .card__stripe--green { background: linear-gradient(90deg, #22c55e, #10b981); }
+    .card__stripe--red { background: linear-gradient(90deg, #ef4444, #f43f5e); }
+    .card__stripe--orange { background: linear-gradient(90deg, #f97316, #f59e0b); }
+    .card__stripe--pink { background: linear-gradient(90deg, #ec4899, #a855f7); }
+    .card__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .card__title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .card__actions {
+      display: flex;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .card__action {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.12s;
+    }
+    .card__action:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .card__action--danger:hover { color: var(--accent-red); }
+    .card__action--accent {
+      background: rgba(20,184,166,0.10);
+      color: var(--accent-teal);
+    }
+    .card__action--accent:hover {
+      background: rgba(20,184,166,0.20);
+      color: #2dd4bf;
+    }
+    .card__meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .card__footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .card__footer-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      color: var(--text-ghost);
+      transition: color 0.12s;
+      cursor: default;
+    }
+
+    /* ── Badges (kanban style) ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 9px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 100px;
+      letter-spacing: 0.02em;
+    }
+    .badge--teal { background: rgba(20,184,166,0.15); color: #5eead4; }
+    .badge--blue { background: rgba(59,130,246,0.15); color: #93c5fd; }
+    .badge--green { background: rgba(34,197,94,0.15); color: #86efac; }
+    .badge--red { background: rgba(239,68,68,0.15); color: #fca5a5; }
+    .badge--orange { background: rgba(249,115,22,0.15); color: #fdba74; }
+    .badge--pink { background: rgba(236,72,153,0.15); color: #f9a8d4; }
+    .badge--yellow { background: rgba(234,179,8,0.15); color: #fde047; }
+    .badge--ghost { background: var(--bg-elevated); color: var(--text-secondary); }
+
+    /* ── Section ── */
+    .section { margin-bottom: 24px; }
+    .section__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 0 2px;
+    }
+    .section__emoji { font-size: 13px; }
+    .section__title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .section__count {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      background: var(--bg-elevated);
+      padding: 1px 7px;
+      border-radius: 100px;
+    }
+
+    /* ── Grid ── */
+    .grid { display: grid; gap: 10px; }
+    .grid--2 { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    .grid--3 { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .grid--4 { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn--primary {
+      background: var(--accent-teal);
+      color: #000;
+      border-color: transparent;
+    }
+    .btn--primary:hover { background: #2dd4bf; }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: var(--border);
+    }
+    .btn--ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .btn--danger { color: var(--accent-red); border-color: rgba(239,68,68,0.20); }
+    .btn--danger:hover { background: rgba(239,68,68,0.10); }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    td {
+      padding: 8px 14px;
+      font-size: 11px;
+      border-bottom: 1px solid var(--border);
+    }
+    td:first-child { color: var(--text-tertiary); width: 160px; }
+    td:last-child { color: var(--text-primary); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Forms ── */
+    .input, select, textarea {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .input:focus, select:focus, textarea:focus { border-color: rgba(20,184,166,0.50); }
+    select option { background: #111; }
+    label {
+      display: block;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-group { margin-bottom: 12px; }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+    }
+    .modal__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .modal__title { font-size: 14px; font-weight: 600; }
+    .modal__close {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none; color: var(--text-tertiary);
+      cursor: pointer; font-size: 16px; border-radius: 4px;
+    }
+    .modal__close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .modal__actions { display: flex; gap: 8px; margin-top: 16px; }
+    .modal__actions .btn { flex: 1; justify-content: center; }
+
+    /* ── Toasts ── */
+    .toast-container {
+      position: fixed;
+      top: 60px;
+      right: 16px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-md);
+      font-size: 11px;
+      color: var(--text-primary);
+      animation: toast-in 0.25s ease-out;
+      min-width: 240px;
+    }
+    .toast--success { border-left: 3px solid var(--accent-green); }
+    .toast--error { border-left: 3px solid var(--accent-red); }
+    .toast--info { border-left: 3px solid var(--accent-blue); }
+    @keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* ── Log Viewer ── */
+    .log-viewer {
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-height: 60vh;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Offline State ── */
+    .offline-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 60px 20px;
+      gap: 12px;
+    }
+    .offline-state__icon { font-size: 36px; opacity: 0.4; }
+    .offline-state__title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+    .offline-state__desc { font-size: 12px; color: var(--text-tertiary); max-width: 360px; line-height: 1.6; }
+    .offline-state__code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-hover);
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      color: var(--accent-teal);
+    }
+    .offline-state__retry {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-ghost);
+      margin-top: 8px;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 10px; height: 10px;
+      border: 1.5px solid var(--border-hover);
+      border-top-color: var(--accent-teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Skeleton ── */
+    .skeleton {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar__logo">⚡</div>
+    <div class="sidebar__item active" data-page="overview" data-tooltip="Overview" onclick="navigate('overview')">📊</div>
+    <div class="sidebar__item" data-page="providers" data-tooltip="Providers" onclick="navigate('providers')">🔌</div>
+    <div class="sidebar__item" data-page="router" data-tooltip="Router" onclick="navigate('router')">🔀</div>
+    <div class="sidebar__item" data-page="logs" data-tooltip="Logs" onclick="navigate('logs')">📋</div>
+    <div class="sidebar__item" data-page="presets" data-tooltip="Presets" onclick="navigate('presets')">📦</div>
+    <div class="sidebar__status">
+      <div class="sidebar__brand">
+        <a href="https://github.com/Kekeu-u/claude-code-presets-switcher" target="_blank" class="sidebar__brand-link">by<br><strong>kekeu</strong> 🐉</a>
+        <span class="sidebar__brand-ver">v1.1.0</span>
+      </div>
+      <div class="sidebar__dot" id="status-dot"></div>
+      <div class="sidebar__port" id="status-text">...</div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Top Bar -->
+    <div class="topbar">
+      <div class="topbar__title" id="page-title">Overview</div>
+      <div class="topbar__actions" id="page-actions"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <div class="toast-container" id="toasts"></div>
+
+      <!-- Overview Page -->
+      <div class="page active" id="page-overview">
+        <div class="stats-bar" id="overview-stats"></div>
+        <div class="section">
+          <div class="section__header">
+            <span class="section__emoji">🔀</span>
+            <span class="section__title">Router Configuration</span>
+          </div>
+          <div class="grid grid--2" id="overview-router"></div>
+        </div>
+        <div class="section">
+          <div class="section__header">
+            <span class="section__emoji">⚙️</span>
+            <span class="section__title">General Settings</span>
+          </div>
+          <div class="table-wrap" id="overview-general">
+            <table><tbody><tr><td colspan="2" style="text-align:center;color:var(--text-tertiary)">Loading…</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Providers Page -->
+      <div class="page" id="page-providers">
+        <div class="grid grid--2" id="providers-list"></div>
+      </div>
+
+      <!-- Router Page -->
+      <div class="page" id="page-router">
+        <div class="grid grid--2" id="router-fields"></div>
+        <div class="section" style="margin-top:20px">
+          <div class="section__header">
+            <span class="section__emoji">🧠</span>
+            <span class="section__title">Advanced</span>
+          </div>
+          <div id="router-advanced"></div>
+        </div>
+      </div>
+
+      <!-- Logs Page -->
+      <div class="page" id="page-logs">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <label style="margin:0">Log File</label>
+          <select id="log-file-select" onchange="loadLogs()" style="width:auto;min-width:200px"></select>
+        </div>
+        <div class="log-viewer" id="log-content">Select a log file…</div>
+      </div>
+
+      <!-- Presets Page -->
+      <div class="page" id="page-presets">
+        <div class="grid grid--2" id="presets-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Provider Modal -->
+  <div class="modal-overlay" id="modal-provider">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal__header">
+        <div class="modal__title" id="provider-modal-title">Add Provider</div>
+        <button class="modal__close" onclick="closeModal('modal-provider')">✕</button>
+      </div>
+      <div class="form-group"><label>Name</label><input class="input" id="prov-name" placeholder="e.g. OpenAI"></div>
+      <div class="form-group"><label>Base URL</label><input class="input" id="prov-url" placeholder="https://api.openai.com/v1"></div>
+      <div class="form-group"><label>API Key</label><input class="input" id="prov-key" type="password" placeholder="sk-..."></div>
+      <div class="form-group"><label>Models (comma-separated)</label><input class="input" id="prov-models" placeholder="gpt-4o, gpt-4o-mini"></div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" onclick="closeModal('modal-provider')">Cancel</button>
+        <button class="btn btn--primary" onclick="saveProvider()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preset Install Modal -->
+  <div class="modal-overlay" id="modal-preset-install">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal__header">
+        <div class="modal__title">Install from GitHub</div>
+        <button class="modal__close" onclick="closeModal('modal-preset-install')">✕</button>
+      </div>
+      <div class="form-group"><label>GitHub URL</label><input class="input" id="preset-github-url" placeholder="https://github.com/user/repo"></div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" onclick="closeModal('modal-preset-install')">Cancel</button>
+        <button class="btn btn--primary" onclick="installPreset()">Install</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const API = '';
+const ROUTE_FIELDS = ['default', 'background', 'think', 'longContext', 'webSearch', 'image'];
+let rawConfig = null;
+let config = null;
+let configFormat = {
+  providersMode: 'object',
+  providersKey: 'providers',
+  providerTemplates: {},
+  routerKey: 'router',
+};
+let ccrOnline = false;
+let allModels = [];
+let editingProviderIndex = -1;
+let retryTimer = null;
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => (
+    ch === '&' ? '&amp;' :
+    ch === '<' ? '&lt;' :
+    ch === '>' ? '&gt;' :
+    ch === '"' ? '&quot;' : '&#39;'
+  ));
+}
+
+function decodeArg(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value ?? {}));
+}
+
+function providerFromRaw(provider, fallbackName = '') {
+  const p = (provider && typeof provider === 'object') ? provider : {};
+  return {
+    name: String(p.name || fallbackName || '').trim(),
+    baseUrl: String(p.baseUrl || p.base_url || p.api_base_url || '').trim(),
+    apiKey: String(p.apiKey || p.api_key || '').trim(),
+    models: Array.isArray(p.models) ? p.models.filter(Boolean).map((m) => String(m)) : [],
+  };
+}
+
+function normalizeConfig(data) {
+  const source = (data && typeof data === 'object') ? data : {};
+  const normalizedProviders = {};
+  const providerTemplates = {};
+
+  let providersMode = 'object';
+  let providersKey = 'providers';
+  let providersSource = {};
+
+  if (Array.isArray(source.Providers)) {
+    providersMode = 'array';
+    providersKey = 'Providers';
+    providersSource = source.Providers;
+  } else if (Array.isArray(source.providers)) {
+    providersMode = 'array';
+    providersKey = 'providers';
+    providersSource = source.providers;
+  } else if (source.Providers && typeof source.Providers === 'object') {
+    providersMode = 'object';
+    providersKey = 'Providers';
+    providersSource = source.Providers;
+  } else if (source.providers && typeof source.providers === 'object') {
+    providersMode = 'object';
+    providersKey = 'providers';
+    providersSource = source.providers;
+  }
+
+  if (providersMode === 'array') {
+    providersSource.forEach((item, index) => {
+      const provider = providerFromRaw(item, `provider-${index + 1}`);
+      if (!provider.name) return;
+      normalizedProviders[provider.name] = {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        models: provider.models,
+      };
+      providerTemplates[provider.name] = { ...(item || {}) };
+    });
+  } else {
+    Object.entries(providersSource || {}).forEach(([name, item]) => {
+      const provider = providerFromRaw(item, name);
+      if (!provider.name) return;
+      normalizedProviders[provider.name] = {
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        models: provider.models,
+      };
+      providerTemplates[provider.name] = { ...(item || {}) };
+    });
+  }
+
+  let routerKey = 'router';
+  let routerSource = {};
+  if (source.router && typeof source.router === 'object' && !Array.isArray(source.router)) {
+    routerKey = 'router';
+    routerSource = source.router;
+  } else if (source.Router && typeof source.Router === 'object' && !Array.isArray(source.Router)) {
+    routerKey = 'Router';
+    routerSource = source.Router;
+  }
+
+  const uiConfig = {
+    ...source,
+    HOST: source.HOST ?? source.host ?? '127.0.0.1',
+    PORT: source.PORT ?? source.port ?? 3000,
+    API_TIMEOUT_MS: source.API_TIMEOUT_MS ?? source.apiTimeoutMs ?? 600000,
+    NON_INTERACTIVE: source.NON_INTERACTIVE ?? source.nonInteractive ?? false,
+    providers: normalizedProviders,
+    router: { ...routerSource },
+  };
+
+  return {
+    config: uiConfig,
+    format: {
+      providersMode,
+      providersKey,
+      providerTemplates,
+      routerKey,
+    },
+  };
+}
+
+function mergeProviderTemplate(template, provider, mode) {
+  const merged = (template && typeof template === 'object') ? { ...template } : {};
+  const baseUrl = provider.baseUrl || '';
+  const apiKey = provider.apiKey || '';
+  const models = Array.isArray(provider.models) ? provider.models : [];
+
+  if (mode === 'array') merged.name = provider.name;
+
+  const hasBaseUrlAlias =
+    Object.prototype.hasOwnProperty.call(merged, 'baseUrl') ||
+    Object.prototype.hasOwnProperty.call(merged, 'base_url') ||
+    Object.prototype.hasOwnProperty.call(merged, 'api_base_url');
+  if (Object.prototype.hasOwnProperty.call(merged, 'baseUrl')) merged.baseUrl = baseUrl;
+  if (Object.prototype.hasOwnProperty.call(merged, 'base_url')) merged.base_url = baseUrl;
+  if (Object.prototype.hasOwnProperty.call(merged, 'api_base_url')) merged.api_base_url = baseUrl;
+  if (!hasBaseUrlAlias) merged[mode === 'array' ? 'api_base_url' : 'baseUrl'] = baseUrl;
+
+  const hasApiKeyAlias =
+    Object.prototype.hasOwnProperty.call(merged, 'apiKey') ||
+    Object.prototype.hasOwnProperty.call(merged, 'api_key');
+  if (Object.prototype.hasOwnProperty.call(merged, 'apiKey')) merged.apiKey = apiKey;
+  if (Object.prototype.hasOwnProperty.call(merged, 'api_key')) merged.api_key = apiKey;
+  if (!hasApiKeyAlias) merged[mode === 'array' ? 'api_key' : 'apiKey'] = apiKey;
+
+  merged.models = models;
+  return merged;
+}
+
+function buildConfigPayload() {
+  const payload = deepClone(rawConfig || {});
+  const providersEntries = Object.entries(config?.providers || {});
+  const isArrayMode = configFormat.providersMode === 'array';
+
+  if (isArrayMode) {
+    payload[configFormat.providersKey] = providersEntries.map(([name, provider]) =>
+      mergeProviderTemplate(configFormat.providerTemplates[name], { ...provider, name }, 'array')
+    );
+  } else {
+    const providersObject = {};
+    providersEntries.forEach(([name, provider]) => {
+      providersObject[name] = mergeProviderTemplate(configFormat.providerTemplates[name], { ...provider, name }, 'object');
+    });
+    payload[configFormat.providersKey] = providersObject;
+  }
+
+  payload[configFormat.routerKey] = { ...(config?.router || {}) };
+  payload.HOST = config?.HOST;
+  payload.PORT = config?.PORT;
+  payload.API_TIMEOUT_MS = config?.API_TIMEOUT_MS;
+  payload.NON_INTERACTIVE = config?.NON_INTERACTIVE;
+  return payload;
+}
+
+async function apiFetch(path, opts = {}) {
+  try {
+    const r = await fetch(`${API}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.headers.get('content-type')?.includes('json') ? await r.json() : await r.text();
+  } catch { return null; }
+}
+
+function toast(msg, type = 'info') {
+  const c = $('#toasts');
+  const t = document.createElement('div');
+  t.className = `toast toast--${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Navigation
+function navigate(page) {
+  $$('.page').forEach(p => p.classList.remove('active'));
+  $$('.sidebar__item').forEach(i => i.classList.remove('active'));
+  $(`#page-${page}`).classList.add('active');
+  $(`.sidebar__item[data-page="${page}"]`).classList.add('active');
+
+  const titles = { overview: 'Overview', providers: 'Providers', router: 'Router', logs: 'Logs', presets: 'Presets' };
+  $('#page-title').textContent = titles[page] || page;
+
+  const ac = $('#page-actions');
+  if (page === 'overview') ac.innerHTML = `<button class="btn btn--ghost" onclick="checkUpdate()">🔄 Update</button><button class="btn btn--danger" onclick="restartCCR()">⟳ Restart</button>`;
+  else if (page === 'providers') ac.innerHTML = `<button class="btn btn--primary" onclick="openProviderModal()">+ Add</button>`;
+  else if (page === 'presets') ac.innerHTML = `<button class="btn btn--primary" onclick="openModal('modal-preset-install')">+ Install</button>`;
+  else if (page === 'logs') ac.innerHTML = `<button class="btn btn--ghost" onclick="loadLogs()">⟳ Refresh</button>`;
+  else if (page === 'router') ac.innerHTML = `<button class="btn btn--primary" onclick="saveConfig()">💾 Save</button>`;
+  else ac.innerHTML = '';
+
+  if (page === 'logs') { loadLogFiles(); loadLogs(); }
+  if (page === 'presets') loadPresets();
+}
+
+// ── Load Config ──
+const OVERVIEW_TEMPLATE = `
+  <div class="stats-bar" id="overview-stats"></div>
+  <div class="section">
+    <div class="section__header"><span class="section__emoji">🔀</span><span class="section__title">Router Configuration</span></div>
+    <div class="grid grid--2" id="overview-router"></div>
+  </div>
+  <div class="section">
+    <div class="section__header"><span class="section__emoji">⚙️</span><span class="section__title">General Settings</span></div>
+    <div class="table-wrap" id="overview-general"><table><tbody><tr><td colspan="2" style="text-align:center;color:var(--text-tertiary)">Loading…</td></tr></tbody></table></div>
+  </div>`;
+
+async function loadConfig() {
+  const data = await apiFetch('/api/config');
+  if (data) {
+    rawConfig = data;
+    const normalized = normalizeConfig(data);
+    config = normalized.config;
+    configFormat = normalized.format;
+    ccrOnline = true;
+    if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+    $('#status-dot').classList.remove('offline');
+    $('#status-text').textContent = config.PORT || 3000;
+    if (!$('#overview-stats')) $('#page-overview').innerHTML = OVERVIEW_TEMPLATE;
+    collectModels();
+    renderOverview();
+    renderProviders();
+    renderRouter();
+  } else {
+    ccrOnline = false;
+    $('#status-dot').classList.add('offline');
+    $('#status-text').textContent = 'OFF';
+    renderOffline();
+    if (!retryTimer) retryTimer = setInterval(loadConfig, 10000);
+  }
+}
+
+function renderOffline() {
+  $('#page-overview').innerHTML = `
+    <div class="offline-state">
+      <div class="offline-state__icon">🔌</div>
+      <div class="offline-state__title">CCR is not running</div>
+      <div class="offline-state__desc">Unable to connect to the CCR API. Start the service and this dashboard will connect automatically.</div>
+      <div class="offline-state__code">ccr start</div>
+      <button class="btn btn--primary" onclick="manualRetry()">⟳ Retry</button>
+      <div class="offline-state__retry"><span class="spinner"></span> Auto-retrying every 10s…</div>
+    </div>`;
+}
+
+async function manualRetry() { await loadConfig(); }
+
+function collectModels() {
+  allModels = [];
+  const seen = new Set();
+  if (!config?.providers) return;
+  Object.entries(config.providers).forEach(([name, p]) => {
+    (p.models || []).forEach(m => {
+      const route = `${name},${m}`;
+      if (seen.has(route)) return;
+      seen.add(route);
+      allModels.push({ model: m, provider: name, route });
+    });
+  });
+}
+
+function routeOptionsHtml(currentValue) {
+  const normalizedCurrent = String(currentValue || '').trim();
+  const options = ['<option value="">— select —</option>'];
+  const seen = new Set();
+  let matched = false;
+
+  allModels.forEach((m) => {
+    if (seen.has(m.route)) return;
+    seen.add(m.route);
+    const isSelected = normalizedCurrent && (normalizedCurrent === m.route || normalizedCurrent === m.model);
+    if (isSelected) matched = true;
+    options.push(
+      `<option value="${escapeHtml(m.route)}" ${isSelected ? 'selected' : ''}>${escapeHtml(m.model)} (${escapeHtml(m.provider)})</option>`
+    );
+  });
+
+  if (normalizedCurrent && !matched) {
+    options.push(`<option value="${escapeHtml(normalizedCurrent)}" selected>${escapeHtml(normalizedCurrent)} (custom)</option>`);
+  }
+
+  return options.join('');
+}
+
+// ── Render Overview ──
+function renderOverview() {
+  if (!config) return;
+  const providers = Object.keys(config.providers || {});
+  const stats = $('#overview-stats');
+  stats.innerHTML = `
+    <div class="stat stat--blue"><span class="stat__icon">🔌</span><span class="stat__value">${providers.length}</span><span class="stat__label">Providers</span></div>
+    <div class="stat stat--teal"><span class="stat__icon">🧠</span><span class="stat__value">${allModels.length}</span><span class="stat__label">Models</span></div>
+    <div class="stat stat--green"><span class="stat__icon">🌐</span><span class="stat__value">${config.PORT || 3000}</span><span class="stat__label">Port</span></div>
+    <div class="stat stat--yellow"><span class="stat__icon">⏱</span><span class="stat__value">${Math.round((config.API_TIMEOUT_MS || 600000) / 60000)}m</span><span class="stat__label">Timeout</span></div>`;
+
+  const stripeColors = ['teal', 'blue', 'green', 'orange', 'pink', 'red'];
+  const r = config.router || {};
+  $('#overview-router').innerHTML = ROUTE_FIELDS.map((k, i) => {
+    const v = r[k] || 'not set';
+    return `<div class="card">
+      <div class="card__stripe card__stripe--${stripeColors[i % stripeColors.length]}"></div>
+      <div class="card__header">
+        <div class="card__title">${escapeHtml(k)}</div>
+        <span class="badge badge--${stripeColors[i % stripeColors.length]}">${escapeHtml(k)}</span>
+      </div>
+      <div style="font-family:monospace;font-size:11px;color:var(--text-secondary);word-break:break-all">${escapeHtml(v)}</div>
+    </div>`;
+  }).join('');
+
+  const settings = { HOST: config.HOST, PORT: config.PORT, API_TIMEOUT_MS: config.API_TIMEOUT_MS, NON_INTERACTIVE: config.NON_INTERACTIVE, longContextThreshold: r.longContextThreshold };
+  $('#overview-general').innerHTML = `<table><tbody>${Object.entries(settings).map(([k, v]) =>
+    `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v ?? '—')}</td></tr>`
+  ).join('')}</tbody></table>`;
+}
+
+// ── Render Providers ──
+function renderProviders() {
+  if (!config?.providers) return;
+  const stripes = ['teal', 'blue', 'green', 'orange', 'pink', 'red'];
+  const entries = Object.entries(config.providers);
+  $('#providers-list').innerHTML = entries.map(([name, p], i) => {
+    const encodedName = encodeURIComponent(name);
+    const models = Array.isArray(p.models) ? p.models : [];
+    const host = String(p.baseUrl || '').replace(/https?:\/\//, '').split('/')[0] || '—';
+    const masked = p.apiKey ? '••••' + String(p.apiKey).slice(-4) : 'none';
+    return `<div class="card">
+      <div class="card__stripe card__stripe--${stripes[i % stripes.length]}"></div>
+      <div class="card__header">
+        <div class="card__title">${escapeHtml(name)}</div>
+        <div class="card__actions">
+          <button class="card__action" onclick="testProvider('${encodedName}')" title="Test">🧪</button>
+          <button class="card__action" onclick="editProvider(${i})" title="Edit">✏️</button>
+          <button class="card__action card__action--danger" onclick="deleteProvider('${encodedName}')" title="Delete">🗑</button>
+        </div>
+      </div>
+      <div class="card__meta">
+        ${models.map(m => `<span class="badge badge--ghost">${escapeHtml(m)}</span>`).join('')}
+      </div>
+      <div class="card__footer">
+        <span class="card__footer-item">🌐 ${escapeHtml(host)}</span>
+        <span class="card__footer-item">🔑 ${escapeHtml(masked)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Render Router ──
+function renderRouter() {
+  if (!config) return;
+  const r = config.router || {};
+  const stripes = ['teal', 'blue', 'green', 'orange', 'pink', 'red'];
+
+  $('#router-fields').innerHTML = ROUTE_FIELDS.map((f, i) => `
+    <div class="card">
+      <div class="card__stripe card__stripe--${stripes[i]}"></div>
+      <div class="card__header"><div class="card__title">${escapeHtml(f)}</div><span class="badge badge--${stripes[i]}">${escapeHtml(f)}</span></div>
+      <div class="form-group" style="margin:0">
+        <select id="route-${f}" style="margin-top:6px">
+          ${routeOptionsHtml(r[f])}
+        </select>
+      </div>
+    </div>
+  `).join('');
+
+  $('#router-advanced').innerHTML = `
+    <div class="form-group">
+      <label>Long Context Threshold (tokens)</label>
+      <input class="input" type="number" id="route-threshold" value="${r.longContextThreshold || 50000}">
+    </div>`;
+}
+
+// ── Provider CRUD ──
+function openProviderModal(idx) {
+  editingProviderIndex = idx ?? -1;
+  if (idx >= 0) {
+    const entries = Object.entries(config.providers);
+    const [name, p] = entries[idx];
+    $('#prov-name').value = name;
+    $('#prov-url').value = p.baseUrl || '';
+    $('#prov-key').value = p.apiKey || '';
+    $('#prov-models').value = (p.models || []).join(', ');
+    $('#provider-modal-title').textContent = 'Edit Provider';
+  } else {
+    $('#prov-name').value = '';
+    $('#prov-url').value = '';
+    $('#prov-key').value = '';
+    $('#prov-models').value = '';
+    $('#provider-modal-title').textContent = 'Add Provider';
+  }
+  openModal('modal-provider');
+}
+
+function editProvider(idx) {
+  openProviderModal(idx);
+}
+
+async function saveProvider() {
+  const name = $('#prov-name').value.trim();
+  if (!name) return toast('Name required', 'error');
+  if (!config.providers) config.providers = {};
+  if (!configFormat.providerTemplates) configFormat.providerTemplates = {};
+  if (editingProviderIndex >= 0) {
+    const oldName = Object.keys(config.providers)[editingProviderIndex];
+    if (oldName && oldName !== name) {
+      delete config.providers[oldName];
+      if (configFormat.providerTemplates[oldName]) {
+        configFormat.providerTemplates[name] = configFormat.providerTemplates[oldName];
+        delete configFormat.providerTemplates[oldName];
+      }
+    }
+  }
+  config.providers[name] = {
+    baseUrl: $('#prov-url').value.trim(),
+    apiKey: $('#prov-key').value.trim(),
+    models: $('#prov-models').value.split(',').map(s => s.trim()).filter(Boolean),
+  };
+  closeModal('modal-provider');
+  await saveConfig();
+}
+
+async function deleteProvider(encodedName) {
+  const name = decodeArg(encodedName);
+  if (!confirm(`Delete provider "${name}"?`)) return;
+  delete config.providers[name];
+  if (configFormat.providerTemplates?.[name]) {
+    delete configFormat.providerTemplates[name];
+  }
+  await saveConfig();
+}
+
+async function testProvider(encodedName) {
+  const name = decodeArg(encodedName);
+  const p = config.providers[name];
+  if (!p?.baseUrl) {
+    toast(`${name}: Base URL missing`, 'error');
+    return;
+  }
+
+  toast(`Testing ${name}…`, 'info');
+  try {
+    const r = await fetch(`${p.baseUrl.replace(/\/$/, '')}/models`, {
+      headers: p.apiKey ? { Authorization: `Bearer ${p.apiKey}` } : {},
+    });
+    toast(r.ok ? `${name}: Connected ✓` : `${name}: HTTP ${r.status}`, r.ok ? 'success' : 'error');
+  } catch { toast(`${name}: Connection failed`, 'error'); }
+}
+
+// ── Save & Restart ──
+async function saveConfig() {
+  if (!config.router) config.router = {};
+  ROUTE_FIELDS.forEach(f => {
+    const el = $(`#route-${f}`);
+    if (el) config.router[f] = el.value.trim();
+  });
+  const thEl = $('#route-threshold');
+  if (thEl) {
+    const threshold = parseInt(thEl.value, 10);
+    config.router.longContextThreshold = Number.isFinite(threshold) ? threshold : 50000;
+  }
+
+  const payload = buildConfigPayload();
+  const r = await apiFetch('/api/config', { method: 'POST', body: JSON.stringify(payload) });
+  if (r) {
+    rawConfig = payload;
+    toast('Config saved', 'success');
+    await apiFetch('/api/restart', { method: 'POST' });
+    toast('CCR restarting…', 'info');
+    setTimeout(loadConfig, 3000);
+  } else { toast('Save failed', 'error'); }
+}
+
+async function restartCCR() {
+  if (!confirm('Restart CCR?')) return;
+  await apiFetch('/api/restart', { method: 'POST' });
+  toast('Restarting…', 'info');
+  setTimeout(loadConfig, 3000);
+}
+
+async function checkUpdate() {
+  const data = await apiFetch('/api/update/check');
+  if (data?.hasUpdate) { toast(`Update available: ${data.latest}`, 'info'); }
+  else { toast('Up to date ✓', 'success'); }
+}
+
+// ── Logs ──
+async function loadLogFiles() {
+  const files = await apiFetch('/api/logs/files');
+  if (files?.length) {
+    $('#log-file-select').innerHTML = files.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+  }
+}
+
+async function loadLogs() {
+  const file = $('#log-file-select')?.value;
+  const data = await apiFetch(`/api/logs${file ? `?file=${encodeURIComponent(file)}` : ''}`);
+  $('#log-content').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+}
+
+// ── Presets ──
+async function loadPresets() {
+  const data = await apiFetch('/api/presets');
+  if (!data?.length) {
+    $('#presets-list').innerHTML = `<div style="text-align:center;color:var(--text-tertiary);padding:40px;font-size:12px">No presets installed</div>`;
+    return;
+  }
+  const stripes = ['teal', 'blue', 'green', 'orange', 'pink'];
+  $('#presets-list').innerHTML = data.map((p, i) => {
+    const name = typeof p === 'string' ? p : (p.name || '');
+    const description = typeof p === 'string' ? '' : (p.description || '');
+    const encodedName = encodeURIComponent(name);
+    return `
+      <div class="card">
+        <div class="card__stripe card__stripe--${stripes[i % stripes.length]}"></div>
+        <div class="card__header">
+          <div class="card__title">${escapeHtml(name)}</div>
+          <div class="card__actions">
+            <button class="card__action card__action--accent" onclick="applyPreset('${encodedName}')" title="Apply">▶</button>
+            <button class="card__action card__action--danger" onclick="deletePreset('${encodedName}')" title="Delete">🗑</button>
+          </div>
+        </div>
+        ${description ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">${escapeHtml(description)}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function applyPreset(encodedName) {
+  const name = decodeArg(encodedName);
+  const r = await apiFetch(`/api/presets/${encodeURIComponent(name)}/apply`, { method: 'POST' });
+  if (r) { toast(`Preset "${name}" applied`, 'success'); loadConfig(); }
+  else toast('Failed to apply', 'error');
+}
+
+async function deletePreset(encodedName) {
+  const name = decodeArg(encodedName);
+  if (!confirm(`Delete preset "${name}"?`)) return;
+  const r = await apiFetch(`/api/presets/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  if (r !== null) { toast('Deleted', 'success'); loadPresets(); }
+  else toast('Failed', 'error');
+}
+
+async function installPreset() {
+  const url = $('#preset-github-url').value.trim();
+  if (!url) return toast('URL required', 'error');
+  const r = await apiFetch('/api/presets/install/github', { method: 'POST', body: JSON.stringify({ url }) });
+  if (r) { toast('Installed ✓', 'success'); closeModal('modal-preset-install'); loadPresets(); }
+  else toast('Install failed', 'error');
+}
+
+// ── Init ──
+navigate('overview');
+loadConfig();
+</script>
+</body>
+</html>
