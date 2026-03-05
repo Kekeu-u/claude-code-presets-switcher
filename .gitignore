@@ -1,11 +1,17 @@
-# Sensitive files
+# API Keys & Sensitive presets
+presets/*.json
 oauth-backup.json
+oauth-accounts.json
 .active-preset
-presets/gemini.json
-.firecrawl/
+
+# CCR config (tem API keys reais)
+# ~/.claude-code-router/config.json NÃO faz parte deste repo,
+# mas se alguém copiar pra cá:
+config.json
 
 # Pasta pessoal (rascunhos, posts, estudos)
 .pessoal/
+.firecrawl/
 
 # OS
 Thumbs.db
