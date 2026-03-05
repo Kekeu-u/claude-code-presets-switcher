@@ -1,0 +1,18 @@
+{
+    "_preset": {
+        "name": "Kimi (Moonshot AI)",
+        "description": "Kimi K2.5 (Sonnet/Opus) + Kimi for Coding (Haiku)",
+        "created": "2026-02-14"
+    },
+    "env": {
+        "API_TIMEOUT_MS": "3000000",
+        "ANTHROPIC_BASE_URL": "https://api.kimi.com/coding/",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "ANTHROPIC_MODEL": "kimi-k2.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.5",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-for-coding",
+        "ANTHROPIC_SMALL_FAST_MODEL": "kimi-for-coding",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    }
+}

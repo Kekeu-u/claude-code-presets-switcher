@@ -1,0 +1,19 @@
+{
+    "_preset": {
+        "name": "OpenAI Codex (via CCR)",
+        "description": "GPT-5.3 Codex + Spark — via Smart Router (CCR)",
+        "created": "2026-03-05",
+        "docs": "https://platform.openai.com/docs"
+    },
+    "env": {
+        "API_TIMEOUT_MS": "3000000",
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:3000/v1/messages",
+        "ANTHROPIC_AUTH_TOKEN": "sk-musi",
+        "ANTHROPIC_MODEL": "gpt-5.3-codex",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.3-codex",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.3-codex",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.3-codex-spark",
+        "ANTHROPIC_SMALL_FAST_MODEL": "gpt-5.3-codex-spark",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    }
+}

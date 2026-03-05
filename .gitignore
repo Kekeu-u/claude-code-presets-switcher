@@ -1,5 +1,6 @@
 # API Keys & Sensitive presets
 presets/*.json
+!presets/examples/*.json
 oauth-backup.json
 oauth-accounts.json
 .active-preset
