@@ -285,6 +285,81 @@ show_preset_list() {
   print_line ""
 }
 
+declare -a MENU_NAMES=()
+declare -a MENU_DESCRIPTIONS=()
+
+build_menu_options() {
+  local preset_file=""
+  local preset_name=""
+  local summary=""
+  local description=""
+
+  MENU_NAMES=("anthropic")
+  MENU_DESCRIPTIONS=("Claude oficial (OAuth limpo)")
+
+  while IFS= read -r preset_file; do
+    preset_name="$(basename "$preset_file" .json)"
+    summary="$(emit_preset_summary "$preset_file" 2>/dev/null || true)"
+    description=""
+    if [[ "$summary" == *$'\t'* ]]; then
+      description="${summary#*$'\t'}"
+    fi
+
+    MENU_NAMES+=("$preset_name")
+    MENU_DESCRIPTIONS+=("$description")
+  done < <(get_preset_files)
+}
+
+show_preset_menu() {
+  local active_preset=""
+  local choice=""
+  local line=""
+  local index=0
+
+  active_preset="$(get_active_preset)"
+  build_menu_options
+
+  while true; do
+    print_line ""
+    print_line "  cmodel - escolha um preset:"
+    show_settings_leak_warning
+    print_line ""
+
+    for ((index = 0; index < ${#MENU_NAMES[@]}; index++)); do
+      line="    [$((index + 1))] ${MENU_NAMES[$index]}"
+      if [[ "${MENU_NAMES[$index]}" == "$active_preset" ]]; then
+        line+=" [active]"
+      fi
+      if [[ -n "${MENU_DESCRIPTIONS[$index]}" ]]; then
+        line+=" - ${MENU_DESCRIPTIONS[$index]}"
+      fi
+      print_line "$line"
+    done
+
+    print_line ""
+    read -r -p "  Escolha um numero ou q para sair: " choice || return 1
+
+    case "$choice" in
+      q|Q|"")
+        return 1
+        ;;
+      *[!0-9]*)
+        print_line ""
+        print_line "  [X] Opcao invalida."
+        ;;
+      *)
+        if (( choice >= 1 && choice <= ${#MENU_NAMES[@]} )); then
+          PRESET_NAME="${MENU_NAMES[$((choice - 1))]}"
+          return 0
+        fi
+
+        print_line ""
+        print_line "  [X] Opcao invalida."
+        ;;
+    esac
+  done
+}
+
 show_usage() {
   print_line ""
   print_line "  cmodel <preset> [args...]"
@@ -376,9 +451,18 @@ if [[ "$STATUS_MODE" -eq 1 ]]; then
 fi
 
 if [[ -z "$PRESET_NAME" ]]; then
-  show_preset_list
-  show_usage
-  script_exit 0
+  if [[ -t 0 && -t 1 ]]; then
+    if ! show_preset_menu; then
+      print_line ""
+      print_line "  [i] Cancelado."
+      print_line ""
+      script_exit 0
+    fi
+  else
+    show_preset_list
+    show_usage
+    script_exit 0
+  fi
 fi
 
 clear_claude_env_vars
