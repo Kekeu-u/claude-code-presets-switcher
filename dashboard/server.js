@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 const DASHBOARD_HOST = '127.0.0.1';
 const DASHBOARD_PORT = Number(process.env.CCR_DASHBOARD_PORT || 3456);
@@ -38,6 +38,34 @@ function sendJson(res, status, payload, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(JSON.stringify(payload));
+}
+
+function launchPresetWindow(presetName) {
+  const homeDir = process.env.USERPROFILE || process.env.HOME;
+  if (!homeDir) {
+    throw new Error('Unable to resolve home directory');
+  }
+
+  const switchScript = path.join(homeDir, '.claude', 'presets', 'switch-preset.ps1');
+  if (!fs.existsSync(switchScript)) {
+    throw new Error(`switch-preset.ps1 not found at ${switchScript}`);
+  }
+
+  if (process.platform !== 'win32') {
+    throw new Error('Preset launching from dashboard is currently supported on Windows only');
+  }
+
+  const child = spawn(
+    'powershell.exe',
+    ['-NoExit', '-ExecutionPolicy', 'Bypass', '-File', switchScript, presetName, '-ApplyOnly'],
+    {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    }
+  );
+
+  child.unref();
 }
 
 function resolveStaticPath(requestUrl) {
@@ -113,6 +141,27 @@ const server = http.createServer((req, res) => {
       'Access-Control-Allow-Headers': 'Content-Type',
     });
     res.end();
+    return;
+  }
+
+  const launchMatch = req.url.match(/^\/dashboard-api\/presets\/([^/?]+)\/launch$/);
+  if (launchMatch) {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return;
+    }
+
+    try {
+      const presetName = decodeURIComponent(launchMatch[1]);
+      launchPresetWindow(presetName);
+      sendJson(res, 200, { ok: true, preset: presetName });
+    }
+    catch (err) {
+      sendJson(res, 500, {
+        error: 'Failed to launch preset',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
     return;
   }
 
