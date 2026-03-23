@@ -35,10 +35,11 @@ $i18n = @{
         step6_ok     = "Guide saved to Desktop"
         step7        = "Done!"
         step7_usage  = "Quick start"
-        step7_cmd1   = "cmodel              Arrow menu + open Claude"
-        step7_cmd2   = "cmodel <name>       Open Claude with a preset"
-        step7_cmd3   = "cmodel <name> -ApplyOnly  Apply without opening Claude"
-        step7_cmd4   = "ccr-dash            Open CCR Dashboard"
+        step7_cmd1   = "cmodel              Choose preset + launch mode"
+        step7_cmd2   = "cmodel <name>       Open Claude with an isolated preset"
+        step7_cmd3   = "cmodel <name> -SetDefault  Persist preset for VS Code Claude"
+        step7_cmd4   = "cmodel <name> -SetDefault -ApplyOnly  Persist without opening"
+        step7_cmd5   = "ccr-dash            Open CCR Dashboard"
         step7_next   = "Restart your terminal, then run: cmodel"
         err_git      = "Git is required. Install: winget install Git.Git"
         err_node     = "Node.js is required. Install: winget install OpenJS.NodeJS.LTS"
@@ -66,10 +67,11 @@ $i18n = @{
         step6_ok     = "Guia salvo na Area de Trabalho"
         step7        = "Concluido!"
         step7_usage  = "Como usar"
-        step7_cmd1   = "cmodel              Menu com setas + abre o Claude"
-        step7_cmd2   = "cmodel <nome>       Abre o Claude com um preset"
-        step7_cmd3   = "cmodel <nome> -ApplyOnly  Aplica sem abrir o Claude"
-        step7_cmd4   = "ccr-dash            Abrir Dashboard CCR"
+        step7_cmd1   = "cmodel              Escolhe preset + modo de abertura"
+        step7_cmd2   = "cmodel <nome>       Abre o Claude com preset isolado"
+        step7_cmd3   = "cmodel <nome> -SetDefault  Salva preset para o VS Code Claude"
+        step7_cmd4   = "cmodel <nome> -SetDefault -ApplyOnly  Salva sem abrir"
+        step7_cmd5   = "ccr-dash            Abrir Dashboard CCR"
         step7_next   = "Reinicie o terminal e rode: cmodel"
         err_git      = "Git e necessario. Instale: winget install Git.Git"
         err_node     = "Node.js e necessario. Instale: winget install OpenJS.NodeJS.LTS"
@@ -94,11 +96,17 @@ function Write-Mini { param([string]$msg) Write-Host "        $msg" -ForegroundC
 
 Clear-Host
 Write-Host ""
-Write-Host "         __        _ " -ForegroundColor DarkGreen
-Write-Host "       _/  \    _(\(o" -ForegroundColor DarkGreen
-Write-Host "      ( \  `---'   \ " -ForegroundColor DarkGreen -NoNewline; Write-Host "   $($t.banner_title)" -ForegroundColor Green
-Write-Host "       )   \     |_| " -ForegroundColor DarkGreen -NoNewline; Write-Host "   $($t.banner_sub)" -ForegroundColor DarkGray
-Write-Host "      (  )__)____/   " -ForegroundColor DarkGreen -NoNewline; Write-Host "   by kekeu" -ForegroundColor DarkGray
+Write-Sep
+Write-Host ""
+Write-Host "      " -NoNewline
+Write-Host $t.banner_title -ForegroundColor Green
+Write-Host "      $($t.banner_sub)" -ForegroundColor DarkGray
+Write-Host "      by " -ForegroundColor DarkGray -NoNewline
+Write-Host "kekeu" -ForegroundColor Green -NoNewline
+Write-Host " " -NoNewline
+Write-Host ([char]0xD83D + [char]0xDC09) -ErrorAction SilentlyContinue 2>$null
+Write-Host ""
+Write-Sep
 Write-Host ""
 
 # ─── Step 1: Language ──────────────────────────────────────
@@ -243,12 +251,15 @@ if ($lang -eq "pt") {
 
 | Comando | O que faz |
 |---------|-----------|
-| ``cmodel`` | Menu interativo com setas e abertura imediata do Claude |
-| ``cmodel <nome>`` | Abre o Claude usando o preset escolhido |
-| ``cmodel <nome> -ApplyOnly`` | Aplica o preset sem abrir o Claude |
+| ``cmodel`` | Menu interativo com escolha de preset e modo de abertura |
+| ``cmodel <nome>`` | Abre o Claude com preset isolado |
+| ``cmodel <nome> -ApplyOnly`` | Aplica o preset so neste terminal |
+| ``cmodel <nome> -SetDefault`` | Salva o preset em ``~/.claude/settings.local.json`` para o VS Code Claude |
+| ``cmodel <nome> -SetDefault -ApplyOnly`` | Salva o preset como padrao sem abrir o Claude |
 | ``cmodel anthropic`` | Abre o Claude oficial (OAuth limpo) |
+| ``cmodel anthropic -SetDefault`` | Limpa o provider padrao persistido |
 | ``cmodel -List`` | Lista todos os presets disponiveis |
-| ``cmodel -Status`` | Mostra qual preset esta ativo |
+| ``cmodel -Status`` | Mostra a sessao atual e o padrao do VS Code |
 | ``ccr-dash`` | Abre o dashboard CCR no browser |
 
 ---
@@ -266,7 +277,7 @@ if ($lang -eq "pt") {
   },
   "env": {
     "ANTHROPIC_BASE_URL": "https://seu-provider.com/v1",
-    "ANTHROPIC_AUTH_TOKEN": "sk-sua-chave-aqui",
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
     "ANTHROPIC_MODEL": "nome-do-modelo"
   }
 }
@@ -292,7 +303,8 @@ if ($lang -eq "pt") {
 
 - **CCR manual**: Inicie o router com `ccr start --no-claude` (ou `ccr-dash`) quando quiser usar o preset `router`.
 - **Dashboard**: Use `ccr-dash` para abrir o dashboard quando necessário
-- **Config limpa**: Remova `ANTHROPIC_*` globais de `~/.claude/settings.json` para nao misturar provider
+- **Config limpa**: Nao deixe `ANTHROPIC_*` globais em `~/.claude/settings.json`
+- **Padrao do VS Code**: Use `cmodel <nome> -SetDefault` para a extensao seguir o provider salvo em `~/.claude/settings.local.json`
 - **Atualizar**: Rode o comando de instalacao novamente para atualizar
 
 ``````powershell
@@ -316,12 +328,15 @@ else {
 
 | Command | What it does |
 |---------|-------------|
-| ``cmodel`` | Interactive arrow menu that opens Claude immediately |
-| ``cmodel <name>`` | Open Claude with the selected preset |
-| ``cmodel <name> -ApplyOnly`` | Apply the preset without opening Claude |
+| ``cmodel`` | Interactive menu to choose a preset and launch mode |
+| ``cmodel <name>`` | Open Claude with an isolated preset |
+| ``cmodel <name> -ApplyOnly`` | Apply the preset only in the current shell |
+| ``cmodel <name> -SetDefault`` | Persist the preset into ``~/.claude/settings.local.json`` for VS Code Claude |
+| ``cmodel <name> -SetDefault -ApplyOnly`` | Persist the preset without opening Claude |
 | ``cmodel anthropic`` | Open official Claude on a clean OAuth flow |
+| ``cmodel anthropic -SetDefault`` | Clear the persisted default provider |
 | ``cmodel -List`` | List all available presets |
-| ``cmodel -Status`` | Show the currently active preset |
+| ``cmodel -Status`` | Show the current shell session and VS Code default |
 | ``ccr-dash`` | Open CCR Dashboard in the browser |
 
 ---
@@ -339,7 +354,7 @@ else {
   },
   "env": {
     "ANTHROPIC_BASE_URL": "https://your-provider.com/v1",
-    "ANTHROPIC_AUTH_TOKEN": "sk-your-key-here",
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
     "ANTHROPIC_MODEL": "model-name"
   }
 }
@@ -365,7 +380,8 @@ else {
 
 - **CCR on-demand**: Start the router with `ccr start --no-claude` (or `ccr-dash`) when using the `router` preset.
 - **Dashboard**: Open the dashboard manually with `ccr-dash` when needed
-- **Clean config**: Remove global `ANTHROPIC_*` entries from `~/.claude/settings.json` to avoid mixed providers
+- **Clean config**: Do not keep global `ANTHROPIC_*` entries in `~/.claude/settings.json`
+- **VS Code default**: Use `cmodel <name> -SetDefault` when you want the extension to follow the saved provider in `~/.claude/settings.local.json`
 - **Update**: Run the install command again to update
 
 ``````powershell
@@ -399,6 +415,7 @@ Write-Host "     $($t.step7_cmd1)" -ForegroundColor Gray
 Write-Host "     $($t.step7_cmd2)" -ForegroundColor Gray
 Write-Host "     $($t.step7_cmd3)" -ForegroundColor Gray
 Write-Host "     $($t.step7_cmd4)" -ForegroundColor Gray
+Write-Host "     $($t.step7_cmd5)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  -> " -ForegroundColor Yellow -NoNewline
 Write-Host $t.step7_next -ForegroundColor Yellow

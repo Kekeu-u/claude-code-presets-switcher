@@ -7,8 +7,8 @@
     "env": {
         "API_TIMEOUT_MS": "3000000",
         "ANTHROPIC_BASE_URL": "http://127.0.0.1:3000/v1/messages",
-        "ANTHROPIC_AUTH_TOKEN": "sk-musi",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
         "ANTHROPIC_MODEL": "ccr-smart-router",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
     }
 }

@@ -13,6 +13,6 @@
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.5",
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-for-coding",
         "ANTHROPIC_SMALL_FAST_MODEL": "kimi-for-coding",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
     }
 }

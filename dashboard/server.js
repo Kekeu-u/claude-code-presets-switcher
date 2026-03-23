@@ -57,7 +57,7 @@ function launchPresetWindow(presetName) {
 
   const child = spawn(
     'powershell.exe',
-    ['-NoExit', '-ExecutionPolicy', 'Bypass', '-File', switchScript, presetName, '-ApplyOnly'],
+    ['-NoExit', '-ExecutionPolicy', 'Bypass', '-File', switchScript, presetName],
     {
       detached: true,
       stdio: 'ignore',

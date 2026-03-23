@@ -277,7 +277,7 @@ if ($lang -eq "pt") {
   },
   "env": {
     "ANTHROPIC_BASE_URL": "https://seu-provider.com/v1",
-    "ANTHROPIC_AUTH_TOKEN": "sk-sua-chave-aqui",
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
     "ANTHROPIC_MODEL": "nome-do-modelo"
   }
 }
@@ -354,7 +354,7 @@ else {
   },
   "env": {
     "ANTHROPIC_BASE_URL": "https://your-provider.com/v1",
-    "ANTHROPIC_AUTH_TOKEN": "sk-your-key-here",
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
     "ANTHROPIC_MODEL": "model-name"
   }
 }

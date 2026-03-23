@@ -35,7 +35,7 @@ cmodel -Status                 # show active session + persisted default
 
 - **Isolated by default** — env vars are set in the current process scope, never written to disk.
 - **Warns on session conflict** — if a session is already active, shows a warning before switching.
-- Dashboard launches are always isolated (`-ApplyOnly`).
+- Dashboard launches open Claude in a detached isolated PowerShell window.
 - Persisted default via `~/.claude/settings.local.json` only when `-SetDefault` is explicit.
 - Old local state files (`.active-preset`, etc.) are cleaned automatically.
 - Missing model slots inherit `ANTHROPIC_MODEL` automatically.
@@ -135,7 +135,7 @@ Set-Alias cmodel Switch-ClaudePreset
 ## Safety
 
 - Never commit preset JSON files with real keys.
-- If you want the old manual flow, use `cmodel <name> -ApplyOnly`.
+- If you want to only prime the current terminal without opening Claude, use `cmodel <name> -ApplyOnly`.
 - If the VS Code extension feels wrong, run `cmodel anthropic -SetDefault` to clear the persisted provider override.
 - If a session feels wrong, remove global `ANTHROPIC_*` entries from `~/.claude/settings.json` and run `cmodel anthropic -ApplyOnly`.
 
