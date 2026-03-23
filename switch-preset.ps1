@@ -71,6 +71,9 @@ $claudeEnvVars = @(
     "API_TIMEOUT_MS",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
 )
+$managedSettingsRootKeys = @(
+    "apiBaseUrl"
+)
 $modelSlotEnvVars = @(
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
@@ -254,6 +257,10 @@ function Resolve-PresetEnvValue {
 
     if ($null -eq $Value) { return $null }
 
+    if ($Value -isnot [string]) {
+        return $Value
+    }
+
     $text = [string]$Value
     if ([string]::IsNullOrWhiteSpace($text)) { return $null }
 
@@ -278,6 +285,16 @@ function Clear-ClaudeEnvVars {
     }
 }
 
+function Restore-ClaudeEnvVars {
+    param([System.Collections.IDictionary]$ManagedEnv)
+
+    Clear-ClaudeEnvVars
+
+    foreach ($key in $ManagedEnv.Keys) {
+        [Environment]::SetEnvironmentVariable($key, [string]$ManagedEnv[$key], "Process")
+    }
+}
+
 function Remove-LegacyStateFiles {
     foreach ($path in $legacyStateFiles) {
         if (Test-Path $path) {
@@ -297,12 +314,18 @@ function Get-SettingsLeakKeys {
         return @()
     }
 
-    if (-not $settings.env) { return @() }
-
     $leakKeys = @()
-    foreach ($prop in $settings.env.PSObject.Properties) {
-        if ($prop.Name -like "ANTHROPIC_*") {
-            $leakKeys += $prop.Name
+    foreach ($rootKey in $managedSettingsRootKeys) {
+        if ($settings.PSObject.Properties[$rootKey]) {
+            $leakKeys += $rootKey
+        }
+    }
+
+    if ($settings.env) {
+        foreach ($prop in $settings.env.PSObject.Properties) {
+            if ($prop.Name -like "ANTHROPIC_*") {
+                $leakKeys += $prop.Name
+            }
         }
     }
 
@@ -492,12 +515,16 @@ function Set-DefaultPresetEnv {
     $settings = Get-JsonConfigObject -Path $settingsLocalJsonPath
     $envObject = Get-OrCreate-EnvObject -Settings $settings -CreateWhenMissing
 
+    foreach ($rootKey in $managedSettingsRootKeys) {
+        Remove-ObjectProperty -Object $settings -Name $rootKey
+    }
+
     foreach ($varName in $claudeEnvVars) {
         Remove-ObjectProperty -Object $envObject -Name $varName
     }
 
     foreach ($key in $NormalizedEnv.Keys) {
-        Set-ObjectProperty -Object $envObject -Name $key -Value ([string]$NormalizedEnv[$key])
+        Set-ObjectProperty -Object $envObject -Name $key -Value $NormalizedEnv[$key]
     }
 
     if (-not (Get-ObjectPropertyNames -Object $envObject).Count) {
@@ -685,11 +712,11 @@ function Show-ModeMenu {
 function Apply-Preset {
     param(
         [string]$Name,
-        [switch]$PersistDefault
+        [switch]$PersistDefault,
+        [switch]$ApplyToCurrentSession
     )
 
     Remove-LegacyStateFiles
-    Clear-ClaudeEnvVars
 
     $presetDefinition = $null
     try {
@@ -715,9 +742,11 @@ function Apply-Preset {
             return $null
         }
     }
-    else {
+    elseif ($ApplyToCurrentSession) {
+        Clear-ClaudeEnvVars
+
         foreach ($key in $presetDefinition.NormalizedEnv.Keys) {
-            [Environment]::SetEnvironmentVariable($key, $presetDefinition.NormalizedEnv[$key], "Process")
+            [Environment]::SetEnvironmentVariable($key, [string]$presetDefinition.NormalizedEnv[$key], "Process")
         }
     }
 
@@ -727,13 +756,17 @@ function Apply-Preset {
         Description = $presetDefinition.Description
         BaseUrl = $presetDefinition.BaseUrl
         Model = $presetDefinition.Model
+        NormalizedEnv = $presetDefinition.NormalizedEnv
         Persisted = [bool]$PersistDefault
-        CleanupAfterRun = (-not $PersistDefault -and $presetDefinition.Name -ne "anthropic")
+        SessionApplied = [bool]$ApplyToCurrentSession
     }
 }
 
 function Invoke-ClaudeSession {
-    param([string[]]$Arguments)
+    param(
+        [string[]]$Arguments,
+        [System.Collections.IDictionary]$NormalizedEnv
+    )
 
     $claudeCommand = Get-Command "claude" -ErrorAction SilentlyContinue
     if (-not $claudeCommand) {
@@ -747,7 +780,19 @@ function Invoke-ClaudeSession {
     Write-Host "  [OK] Abrindo Claude Code..." -ForegroundColor Green
     Write-Host ""
 
-    & $claudeCommand.Source @Arguments
+    $originalManagedEnv = Get-CurrentSessionManagedEnv
+    try {
+        Clear-ClaudeEnvVars
+
+        foreach ($key in $NormalizedEnv.Keys) {
+            [Environment]::SetEnvironmentVariable($key, [string]$NormalizedEnv[$key], "Process")
+        }
+
+        & $claudeCommand.Source @Arguments
+    }
+    finally {
+        Restore-ClaudeEnvVars -ManagedEnv $originalManagedEnv
+    }
 
     if ($null -eq $LASTEXITCODE) {
         return 0
@@ -828,7 +873,8 @@ if ($selectedFromMenu -and -not $ApplyOnly -and -not $SetDefault) {
     $ApplyOnly = [bool]$selectedMode.ApplyOnly
 }
 
-$appliedPreset = Apply-Preset -Name $PresetName -PersistDefault:$SetDefault
+$applyToCurrentSession = ($ApplyOnly -and -not $SetDefault)
+$appliedPreset = Apply-Preset -Name $PresetName -PersistDefault:$SetDefault -ApplyToCurrentSession:$applyToCurrentSession
 if (-not $appliedPreset) {
     Write-Host ""
     Write-Host "  [X] Preset '$PresetName' nao encontrado ou invalido." -ForegroundColor Red
@@ -874,16 +920,6 @@ if ($ApplyOnly) {
 }
 
 $exitCode = 0
-try {
-    $exitCode = Invoke-ClaudeSession -Arguments $ClaudeArgs
-}
-finally {
-    if ($appliedPreset.CleanupAfterRun) {
-        Clear-ClaudeEnvVars
-        Remove-LegacyStateFiles
-        Write-Host ""
-        Write-Host "  [i] Sessao limpa apos fechar o Claude." -ForegroundColor DarkGray
-    }
-}
+$exitCode = Invoke-ClaudeSession -Arguments $ClaudeArgs -NormalizedEnv $appliedPreset.NormalizedEnv
 
 $global:LASTEXITCODE = $exitCode

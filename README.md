@@ -71,7 +71,7 @@ Copy an example, rename it to `.json`, and add your real key outside git.
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "model-name",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "model-fast",
     "ANTHROPIC_SMALL_FAST_MODEL": "model-fast",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
   }
 }
 ```
@@ -96,6 +96,8 @@ More preset notes live in [PROVIDERS.md](./PROVIDERS.md).
 ## Keep Claude Config Clean
 
 Do not keep provider env such as `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, or `ANTHROPIC_AUTH_TOKEN` inside `~/.claude/settings.json`.
+
+Do not keep a root `apiBaseUrl` there either. That value overrides provider endpoints globally and can silently force Claude back to a local proxy such as `http://127.0.0.1:8045`.
 
 Those values are global and can leak across providers, which is exactly the kind of mixed session `cmodel` is trying to avoid.
 

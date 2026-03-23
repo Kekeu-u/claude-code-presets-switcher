@@ -2,8 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PRESETS_DIR="$SCRIPT_DIR"
+PRESETS_DIR="${HOME}/.claude/presets"
 SETTINGS_JSON_PATH="${HOME}/.claude/settings.json"
+SETTINGS_LOCAL_JSON_PATH="${HOME}/.claude/settings.local.json"
 CLAUDE_ENV_VARS=(
   "ANTHROPIC_BASE_URL"
   "ANTHROPIC_API_KEY"
@@ -15,6 +16,9 @@ CLAUDE_ENV_VARS=(
   "ANTHROPIC_SMALL_FAST_MODEL"
   "API_TIMEOUT_MS"
   "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
+)
+MANAGED_SETTINGS_ROOT_KEYS=(
+  "apiBaseUrl"
 )
 MODEL_SLOT_ENV_VARS=(
   "ANTHROPIC_DEFAULT_SONNET_MODEL"
@@ -52,12 +56,18 @@ get_settings_leak_keys() {
     return 0
   fi
 
-  node - "$SETTINGS_JSON_PATH" <<'NODE'
+  node - "$SETTINGS_JSON_PATH" "${MANAGED_SETTINGS_ROOT_KEYS[@]}" <<'NODE'
 const fs = require('fs');
 
 try {
   const settings = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+  const managedRootKeys = process.argv.slice(3);
   const env = settings.env && typeof settings.env === 'object' ? settings.env : {};
+  for (const key of managedRootKeys) {
+    if (settings[key] !== undefined && settings[key] !== null) {
+      console.log(key);
+    }
+  }
   for (const key of Object.keys(env)) {
     if (key.startsWith('ANTHROPIC_')) {
       console.log(key);
@@ -131,9 +141,179 @@ try {
 NODE
 }
 
+emit_settings_local_managed_env_lines() {
+  node - "$SETTINGS_LOCAL_JSON_PATH" "${CLAUDE_ENV_VARS[@]}" <<'NODE'
+const fs = require('fs');
+
+const filePath = process.argv[2];
+const managedKeys = process.argv.slice(3);
+
+try {
+  if (!fs.existsSync(filePath)) {
+    process.exit(0);
+  }
+
+  const settings = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const env = settings && settings.env && typeof settings.env === 'object' ? settings.env : {};
+  for (const key of managedKeys) {
+    if (env[key] !== undefined && env[key] !== null) {
+      const value = String(env[key]).trim();
+      if (value) {
+        console.log(`${key}\t${value}`);
+      }
+    }
+  }
+} catch (error) {
+  console.error(`Could not parse '${filePath}': ${error.message}`);
+  process.exit(1);
+}
+NODE
+}
+
+emit_normalized_env_json() {
+  node - "$1" <<'NODE'
+const fs = require('fs');
+
+const modelSlots = [
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_SMALL_FAST_MODEL',
+];
+
+try {
+  const preset = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+  const env = preset && preset.env && typeof preset.env === 'object' ? preset.env : {};
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(env)) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    if (typeof value === 'string') {
+      const valueText = value.trim();
+      if (!valueText) {
+        continue;
+      }
+      normalized[key] = valueText;
+      continue;
+    }
+
+    normalized[key] = value;
+  }
+
+  const mainModel = typeof normalized.ANTHROPIC_MODEL === 'string'
+    ? normalized.ANTHROPIC_MODEL.trim()
+    : '';
+
+  if (mainModel) {
+    for (const slotName of modelSlots) {
+      if (normalized[slotName] === undefined || normalized[slotName] === null || normalized[slotName] === '') {
+        normalized[slotName] = mainModel;
+      }
+    }
+  }
+
+  process.stdout.write(JSON.stringify(normalized));
+} catch (_) {
+  process.exit(1);
+}
+NODE
+}
+
+write_settings_local_managed_env() {
+  local env_json="${1-}"
+  local env_json_b64=""
+
+  if [[ -z "$env_json" ]]; then
+    env_json='{}'
+  fi
+
+  env_json_b64="$(printf '%s' "$env_json" | base64 | tr -d '\r\n')"
+
+  node - "$SETTINGS_LOCAL_JSON_PATH" "${CLAUDE_ENV_VARS[@]}" -- "$env_json_b64" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+const filePath = process.argv[2];
+const managedKeys = [];
+let index = 3;
+while (index < process.argv.length && process.argv[index] !== '--') {
+  managedKeys.push(process.argv[index]);
+  index += 1;
+}
+index += 1;
+const envJsonBase64 = process.argv[index] || '';
+let managedEnv = {};
+
+try {
+  const envJson = envJsonBase64
+    ? Buffer.from(envJsonBase64, 'base64').toString('utf8')
+    : '{}';
+  managedEnv = JSON.parse(envJson);
+} catch (error) {
+  console.error(`Invalid managed env JSON: ${error.message}`);
+  process.exit(1);
+}
+
+let settings = {};
+if (fs.existsSync(filePath)) {
+  try {
+    settings = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    console.error(`Could not parse '${filePath}': ${error.message}`);
+    process.exit(1);
+  }
+}
+
+if (!settings || Array.isArray(settings) || typeof settings !== 'object') {
+  console.error(`'${filePath}' must contain a JSON object at the root.`);
+  process.exit(1);
+}
+
+delete settings.apiBaseUrl;
+
+let env = settings.env;
+if (env === undefined || env === null) {
+  env = {};
+} else if (Array.isArray(env) || typeof env !== 'object') {
+  console.error(`'env' in '${filePath}' must be a JSON object.`);
+  process.exit(1);
+}
+
+for (const key of managedKeys) {
+  delete env[key];
+}
+
+for (const [key, value] of Object.entries(managedEnv)) {
+  env[key] = value;
+}
+
+if (Object.keys(env).length === 0) {
+  delete settings.env;
+} else {
+  settings.env = env;
+}
+
+if (Object.keys(settings).length === 0) {
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+  process.exit(0);
+}
+
+fs.mkdirSync(path.dirname(filePath), { recursive: true });
+fs.writeFileSync(filePath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+NODE
+}
+
 declare -A PRESET_ENV=()
+declare -A SESSION_ENV=()
+declare -A DEFAULT_ENV=()
 PRESET_DISPLAY_NAME=""
 PRESET_DESCRIPTION=""
+PRESET_ENV_JSON="{}"
 
 load_preset() {
   local preset_file="$1"
@@ -142,8 +322,13 @@ load_preset() {
   PRESET_ENV=()
   PRESET_DISPLAY_NAME=""
   PRESET_DESCRIPTION=""
+  PRESET_ENV_JSON="{}"
 
   if ! summary="$(emit_preset_summary "$preset_file")"; then
+    return 1
+  fi
+
+  if ! PRESET_ENV_JSON="$(emit_normalized_env_json "$preset_file")"; then
     return 1
   fi
 
@@ -151,7 +336,6 @@ load_preset() {
   if [[ "$summary" == *$'\t'* ]]; then
     PRESET_DESCRIPTION="${summary#*$'\t'}"
   fi
-
   while IFS=$'\t' read -r key value; do
     if [[ -z "$key" ]]; then
       continue
@@ -163,6 +347,30 @@ load_preset() {
   return 0
 }
 
+load_session_env() {
+  local key=""
+  SESSION_ENV=()
+
+  for key in "${CLAUDE_ENV_VARS[@]}"; do
+    if [[ -n "${!key-}" ]]; then
+      SESSION_ENV["$key"]="${!key}"
+    fi
+  done
+}
+
+load_default_env() {
+  local key=""
+  local value=""
+  DEFAULT_ENV=()
+
+  while IFS=$'\t' read -r key value; do
+    if [[ -z "$key" ]]; then
+      continue
+    fi
+    DEFAULT_ENV["$key"]="$value"
+  done < <(emit_settings_local_managed_env_lines)
+}
+
 clear_claude_env_vars() {
   local var_name=""
   for var_name in "${CLAUDE_ENV_VARS[@]}"; do
@@ -170,32 +378,17 @@ clear_claude_env_vars() {
   done
 }
 
-test_is_anthropic_session() {
-  local var_name=""
-  for var_name in "${CLAUDE_ENV_VARS[@]}"; do
-    local value="${!var_name-}"
-    if [[ -n "${value}" ]]; then
-      return 1
-    fi
-  done
-
-  return 0
-}
-
-preset_matches_session() {
-  local preset_file="$1"
+env_map_matches_loaded_preset() {
+  local map_name="$1"
+  local -n actual_map="$map_name"
   local key=""
 
-  if ! load_preset "$preset_file"; then
-    return 1
-  fi
-
-  if [[ "${#PRESET_ENV[@]}" -eq 0 ]]; then
+  if [[ "${#PRESET_ENV[@]}" -ne "${#actual_map[@]}" ]]; then
     return 1
   fi
 
   for key in "${!PRESET_ENV[@]}"; do
-    if [[ "${!key-}" != "${PRESET_ENV[$key]}" ]]; then
+    if [[ "${actual_map[$key]-}" != "${PRESET_ENV[$key]}" ]]; then
       return 1
     fi
   done
@@ -203,22 +396,55 @@ preset_matches_session() {
   return 0
 }
 
-get_active_preset() {
+test_is_anthropic_session() {
+  load_session_env
+  [[ "${#SESSION_ENV[@]}" -eq 0 ]]
+}
+
+get_active_session_preset() {
   local preset_file=""
 
-  if test_is_anthropic_session; then
+  load_session_env
+  if [[ "${#SESSION_ENV[@]}" -eq 0 ]]; then
     print_line "anthropic"
     return 0
   fi
 
   while IFS= read -r preset_file; do
-    if preset_matches_session "$preset_file"; then
+    if ! load_preset "$preset_file"; then
+      continue
+    fi
+
+    if env_map_matches_loaded_preset SESSION_ENV; then
       basename "$preset_file" .json
       return 0
     fi
   done < <(get_preset_files)
 
   print_line "custom-session"
+}
+
+get_default_preset() {
+  local preset_file=""
+
+  load_default_env
+  if [[ "${#DEFAULT_ENV[@]}" -eq 0 ]]; then
+    print_line "anthropic"
+    return 0
+  fi
+
+  while IFS= read -r preset_file; do
+    if ! load_preset "$preset_file"; then
+      continue
+    fi
+
+    if env_map_matches_loaded_preset DEFAULT_ENV; then
+      basename "$preset_file" .json
+      return 0
+    fi
+  done < <(get_preset_files)
+
+  print_line "custom-default"
 }
 
 show_settings_leak_warning() {
@@ -237,49 +463,63 @@ show_settings_leak_warning() {
   print_line "         Isso pode misturar provider/modelo fora do preset."
 }
 
+get_marker_text() {
+  local name="$1"
+  local session_preset="$2"
+  local default_preset="$3"
+  local markers=()
+
+  if [[ "$name" == "$session_preset" ]]; then
+    markers+=("session")
+  fi
+  if [[ "$name" == "$default_preset" ]]; then
+    markers+=("default")
+  fi
+
+  if [[ "${#markers[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  printf ' [%s]' "$(IFS=', '; echo "${markers[*]}")"
+}
+
 show_preset_list() {
-  local active_preset
+  local session_preset=""
+  local default_preset=""
   local preset_file=""
   local preset_name=""
   local summary=""
-  local display_name=""
   local description=""
+  local marker=""
 
-  active_preset="$(get_active_preset)"
+  session_preset="$(get_active_session_preset)"
+  default_preset="$(get_default_preset)"
 
   print_line ""
   print_line "  Presets disponiveis:"
   show_settings_leak_warning
   print_line ""
 
-  if [[ "$active_preset" == "anthropic" ]]; then
-    print_line "    anthropic [active] - Claude oficial (OAuth limpo)"
-  else
-    print_line "    anthropic - Claude oficial (OAuth limpo)"
-  fi
+  marker="$(get_marker_text "anthropic" "$session_preset" "$default_preset")"
+  print_line "    anthropic$marker - Claude oficial (OAuth limpo)"
 
   while IFS= read -r preset_file; do
     preset_name="$(basename "$preset_file" .json)"
     summary="$(emit_preset_summary "$preset_file" 2>/dev/null || true)"
-    display_name="${summary%%$'\t'*}"
     description=""
     if [[ "$summary" == *$'\t'* ]]; then
       description="${summary#*$'\t'}"
     fi
-
-    if [[ -n "$description" ]]; then
-      description=" - $description"
-    fi
-
-    if [[ "$active_preset" == "$preset_name" ]]; then
-      print_line "    $preset_name [active]$description"
-    else
-      print_line "    $preset_name$description"
-    fi
+    marker="$(get_marker_text "$preset_name" "$session_preset" "$default_preset")"
+    print_line "    $preset_name$marker${description:+ - $description}"
   done < <(get_preset_files)
 
-  if [[ "$active_preset" == "custom-session" ]]; then
-    print_line "    custom-session [active]"
+  if [[ "$session_preset" == "custom-session" ]]; then
+    print_line "    custom-session [session]"
+  fi
+
+  if [[ "$default_preset" == "custom-default" ]]; then
+    print_line "    custom-default [default]"
   fi
 
   print_line ""
@@ -311,12 +551,15 @@ build_menu_options() {
 }
 
 show_preset_menu() {
-  local active_preset=""
+  local session_preset=""
+  local default_preset=""
   local choice=""
   local line=""
   local index=0
+  local marker=""
 
-  active_preset="$(get_active_preset)"
+  session_preset="$(get_active_session_preset)"
+  default_preset="$(get_default_preset)"
   build_menu_options
 
   while true; do
@@ -326,10 +569,8 @@ show_preset_menu() {
     print_line ""
 
     for ((index = 0; index < ${#MENU_NAMES[@]}; index++)); do
-      line="    [$((index + 1))] ${MENU_NAMES[$index]}"
-      if [[ "${MENU_NAMES[$index]}" == "$active_preset" ]]; then
-        line+=" [active]"
-      fi
+      marker="$(get_marker_text "${MENU_NAMES[$index]}" "$session_preset" "$default_preset")"
+      line="    [$((index + 1))] ${MENU_NAMES[$index]}$marker"
       if [[ -n "${MENU_DESCRIPTIONS[$index]}" ]]; then
         line+=" - ${MENU_DESCRIPTIONS[$index]}"
       fi
@@ -360,10 +601,53 @@ show_preset_menu() {
   done
 }
 
+show_mode_menu() {
+  local selected_preset="$1"
+  local choice=""
+
+  while true; do
+    print_line ""
+    print_line "  Como voce quer abrir '$selected_preset'?"
+    print_line "    [1] Abrir isolado (so este terminal)"
+    print_line "    [2] Abrir e definir como padrao do VS Code Claude"
+    print_line "    [3] Definir como padrao sem abrir Claude"
+    print_line "    [Q] Cancelar"
+    print_line ""
+
+    read -r -p "  Escolha: " choice || return 1
+    case "${choice^^}" in
+      1)
+        SET_DEFAULT=0
+        APPLY_ONLY=0
+        return 0
+        ;;
+      2)
+        SET_DEFAULT=1
+        APPLY_ONLY=0
+        return 0
+        ;;
+      3)
+        SET_DEFAULT=1
+        APPLY_ONLY=1
+        return 0
+        ;;
+      Q|"")
+        return 1
+        ;;
+      *)
+        print_line ""
+        print_line "  [X] Opcao invalida."
+        ;;
+    esac
+  done
+}
+
 show_usage() {
   print_line ""
   print_line "  cmodel <preset> [args...]"
   print_line "  cmodel <preset> -ApplyOnly"
+  print_line "  cmodel <preset> -SetDefault"
+  print_line "  cmodel <preset> -SetDefault -ApplyOnly"
   print_line "  cmodel anthropic"
   print_line "  cmodel -List"
   print_line "  cmodel -Status"
@@ -372,7 +656,8 @@ show_usage() {
 
 launch_claude() {
   local selected_preset="$1"
-  shift
+  local persist_default="$2"
+  shift 2
   local -a claude_args=("$@")
   local -a env_cmd=(env)
   local key=""
@@ -392,7 +677,7 @@ launch_claude() {
     env_cmd+=("-u" "$key")
   done
 
-  if [[ "$selected_preset" != "anthropic" ]]; then
+  if [[ "$persist_default" -eq 0 && "$selected_preset" != "anthropic" ]]; then
     for key in "${!PRESET_ENV[@]}"; do
       env_cmd+=("$key=${PRESET_ENV[$key]}")
     done
@@ -405,7 +690,9 @@ PRESET_NAME=""
 LIST_MODE=0
 STATUS_MODE=0
 APPLY_ONLY=0
+SET_DEFAULT=0
 FORWARD_CLAUDE_ARGS=0
+SELECTED_FROM_MENU=0
 CLAUDE_ARGS=()
 
 for arg in "$@"; do
@@ -427,6 +714,9 @@ for arg in "$@"; do
     -ApplyOnly|--apply-only|-NoLaunch|--no-launch)
       APPLY_ONLY=1
       ;;
+    -SetDefault|--set-default|-Default|--default)
+      SET_DEFAULT=1
+      ;;
     *)
       if [[ -z "$PRESET_NAME" ]]; then
         PRESET_NAME="$arg"
@@ -444,7 +734,9 @@ fi
 
 if [[ "$STATUS_MODE" -eq 1 ]]; then
   print_line ""
-  print_line "  Preset ativo: $(get_active_preset)"
+  print_line "  Sessao atual: $(get_active_session_preset)"
+  print_line "  Padrao VS Code: $(get_default_preset)"
+  print_line "  Arquivo monitorado pela extensao: $SETTINGS_LOCAL_JSON_PATH"
   show_settings_leak_warning
   print_line ""
   script_exit 0
@@ -458,9 +750,19 @@ if [[ -z "$PRESET_NAME" ]]; then
       print_line ""
       script_exit 0
     fi
+    SELECTED_FROM_MENU=1
   else
     show_preset_list
     show_usage
+    script_exit 0
+  fi
+fi
+
+if [[ "$SELECTED_FROM_MENU" -eq 1 && "$APPLY_ONLY" -eq 0 && "$SET_DEFAULT" -eq 0 ]]; then
+  if ! show_mode_menu "$PRESET_NAME"; then
+    print_line ""
+    print_line "  [i] Cancelado."
+    print_line ""
     script_exit 0
   fi
 fi
@@ -470,6 +772,7 @@ clear_claude_env_vars
 if [[ "$PRESET_NAME" == "anthropic" ]]; then
   PRESET_DISPLAY_NAME="anthropic (OAuth padrao)"
   PRESET_DESCRIPTION="Claude oficial (OAuth limpo)"
+  PRESET_ENV=()
 else
   PRESET_FILE="$PRESETS_DIR/${PRESET_NAME}.json"
   if [[ ! -f "$PRESET_FILE" ]]; then
@@ -494,6 +797,20 @@ else
   fi
 fi
 
+if [[ "$SET_DEFAULT" -eq 1 ]]; then
+  env_json='{}'
+  if [[ "$PRESET_NAME" != "anthropic" ]]; then
+    env_json="$PRESET_ENV_JSON"
+  fi
+
+  if ! write_settings_local_managed_env "$env_json"; then
+    print_line ""
+    print_line "  [X] Nao foi possivel atualizar $SETTINGS_LOCAL_JSON_PATH."
+    print_line ""
+    script_exit 1
+  fi
+fi
+
 print_line ""
 print_line "  [OK] $PRESET_DISPLAY_NAME"
 if [[ -n "$PRESET_DESCRIPTION" ]]; then
@@ -505,9 +822,23 @@ fi
 if [[ -n "${PRESET_ENV[ANTHROPIC_MODEL]-}" ]]; then
   print_line "  [i] Model:    ${PRESET_ENV[ANTHROPIC_MODEL]}"
 fi
+if [[ "$SET_DEFAULT" -eq 1 ]]; then
+  print_line "  [i] Padrao persistido em: $SETTINGS_LOCAL_JSON_PATH"
+fi
 show_settings_leak_warning
 
 if [[ "$APPLY_ONLY" -eq 1 ]]; then
+  if [[ "$SET_DEFAULT" -eq 1 ]]; then
+    print_line ""
+    if [[ "$PRESET_NAME" == "anthropic" ]]; then
+      print_line "  [i] Padrao limpo. O VS Code Claude volta ao OAuth padrao."
+    else
+      print_line "  [i] Preset salvo como padrao. O VS Code Claude usara esse provider."
+    fi
+    print_line ""
+    script_exit 0
+  fi
+
   if [[ "$IS_SOURCED" -ne 1 ]]; then
     print_line ""
     print_line "  [X] -ApplyOnly precisa rodar via funcao shell: cmodel <preset> -ApplyOnly"
@@ -532,12 +863,14 @@ if [[ "$APPLY_ONLY" -eq 1 ]]; then
   script_exit 0
 fi
 
-launch_claude "$PRESET_NAME" "${CLAUDE_ARGS[@]}"
+launch_claude "$PRESET_NAME" "$SET_DEFAULT" "${CLAUDE_ARGS[@]}"
 exit_code=$?
 
-clear_claude_env_vars
+if [[ "$SET_DEFAULT" -eq 0 ]]; then
+  clear_claude_env_vars
 
-print_line ""
-print_line "  [i] Sessao limpa apos fechar o Claude."
+  print_line ""
+  print_line "  [i] Sessao limpa apos fechar o Claude."
+fi
 
 script_exit "$exit_code"

@@ -1,0 +1,13 @@
+{
+    "_preset": {
+        "name": "Antigravity",
+        "description": "Antigravity Manager local proxy",
+        "created": "2026-03-19",
+        "docs": "http://127.0.0.1:8045"
+    },
+    "env": {
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:8045",
+        "ANTHROPIC_API_KEY": "YOUR_API_KEY_HERE",
+        "API_TIMEOUT_MS": "300000"
+    }
+}

@@ -1,7 +1,7 @@
 {
     "_preset": {
         "name": "GLM (Z.AI)",
-        "description": "GLM-4.7 (all slots) via Zhipu AI",
+        "description": "GLM-4.7 main with GLM-4.5 fast slots via Zhipu AI",
         "created": "2026-02-14"
     },
     "env": {
@@ -11,8 +11,8 @@
         "ANTHROPIC_MODEL": "glm-4.7",
         "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-4.7",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
-        "ANTHROPIC_SMALL_FAST_MODEL": "glm-4.7",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5",
+        "ANTHROPIC_SMALL_FAST_MODEL": "glm-4.5",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     }
 }

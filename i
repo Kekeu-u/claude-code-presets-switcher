@@ -35,9 +35,9 @@ $i18n = @{
         step6_ok     = "Guide saved to Desktop"
         step7        = "Done!"
         step7_usage  = "Quick start"
-        step7_cmd1   = "cmodel              Interactive preset menu"
-        step7_cmd2   = "cmodel <name>       Switch to a preset"
-        step7_cmd3   = "cmodel -List        List all presets"
+        step7_cmd1   = "cmodel              Arrow menu + open Claude"
+        step7_cmd2   = "cmodel <name>       Open Claude with a preset"
+        step7_cmd3   = "cmodel <name> -ApplyOnly  Apply without opening Claude"
         step7_cmd4   = "ccr-dash            Open CCR Dashboard"
         step7_next   = "Restart your terminal, then run: cmodel"
         err_git      = "Git is required. Install: winget install Git.Git"
@@ -66,9 +66,9 @@ $i18n = @{
         step6_ok     = "Guia salvo na Area de Trabalho"
         step7        = "Concluido!"
         step7_usage  = "Como usar"
-        step7_cmd1   = "cmodel              Menu interativo de presets"
-        step7_cmd2   = "cmodel <nome>       Trocar para um preset"
-        step7_cmd3   = "cmodel -List        Listar todos os presets"
+        step7_cmd1   = "cmodel              Menu com setas + abre o Claude"
+        step7_cmd2   = "cmodel <nome>       Abre o Claude com um preset"
+        step7_cmd3   = "cmodel <nome> -ApplyOnly  Aplica sem abrir o Claude"
         step7_cmd4   = "ccr-dash            Abrir Dashboard CCR"
         step7_next   = "Reinicie o terminal e rode: cmodel"
         err_git      = "Git e necessario. Instale: winget install Git.Git"
@@ -157,11 +157,21 @@ try {
                     Copy-Item $_.FullName $installDir -Force
                 }
             }
-            if (Test-Path "$backupDir\.active-preset") {
-                Copy-Item "$backupDir\.active-preset" $installDir -Force
-            }
+        }
+
+    }
+
+    foreach ($legacyPath in @(
+        "$installDir\.active-preset",
+        "$installDir\oauth-accounts.json",
+        "$installDir\oauth-backup.json",
+        "$installDir\GUIA-PRESETS.md"
+    )) {
+        if (Test-Path $legacyPath) {
+            Remove-Item $legacyPath -Force -ErrorAction SilentlyContinue
         }
     }
+
     Write-Ok $t.step3_ok
 }
 catch {
@@ -233,9 +243,10 @@ if ($lang -eq "pt") {
 
 | Comando | O que faz |
 |---------|-----------|
-| ``cmodel`` | Menu interativo para escolher preset |
-| ``cmodel <nome>`` | Troca direto para um preset |
-| ``cmodel anthropic`` | Volta ao Claude oficial (OAuth) |
+| ``cmodel`` | Menu interativo com setas e abertura imediata do Claude |
+| ``cmodel <nome>`` | Abre o Claude usando o preset escolhido |
+| ``cmodel <nome> -ApplyOnly`` | Aplica o preset sem abrir o Claude |
+| ``cmodel anthropic`` | Abre o Claude oficial (OAuth limpo) |
 | ``cmodel -List`` | Lista todos os presets disponiveis |
 | ``cmodel -Status`` | Mostra qual preset esta ativo |
 | ``ccr-dash`` | Abre o dashboard CCR no browser |
@@ -261,7 +272,7 @@ if ($lang -eq "pt") {
 }
 ``````
 
-3. Rode ``cmodel meu-preset`` e pronto!
+3. Rode ``cmodel meu-preset`` e o Claude abre com esse preset.
 
 ---
 
@@ -279,8 +290,9 @@ if ($lang -eq "pt") {
 
 ## Dicas
 
-- **Auto-start CCR**: Presets que usam ``localhost:3000`` iniciam o router automaticamente
-- **Dashboard**: O CCR Dashboard abre no browser quando o router inicia
+- **CCR manual**: Inicie o router com `ccr start --no-claude` (ou `ccr-dash`) quando quiser usar o preset `router`.
+- **Dashboard**: Use `ccr-dash` para abrir o dashboard quando necessário
+- **Config limpa**: Remova `ANTHROPIC_*` globais de `~/.claude/settings.json` para nao misturar provider
 - **Atualizar**: Rode o comando de instalacao novamente para atualizar
 
 ``````powershell
@@ -304,9 +316,10 @@ else {
 
 | Command | What it does |
 |---------|-------------|
-| ``cmodel`` | Interactive menu to choose a preset |
-| ``cmodel <name>`` | Switch directly to a preset |
-| ``cmodel anthropic`` | Switch back to official Claude (OAuth) |
+| ``cmodel`` | Interactive arrow menu that opens Claude immediately |
+| ``cmodel <name>`` | Open Claude with the selected preset |
+| ``cmodel <name> -ApplyOnly`` | Apply the preset without opening Claude |
+| ``cmodel anthropic`` | Open official Claude on a clean OAuth flow |
 | ``cmodel -List`` | List all available presets |
 | ``cmodel -Status`` | Show the currently active preset |
 | ``ccr-dash`` | Open CCR Dashboard in the browser |
@@ -332,7 +345,7 @@ else {
 }
 ``````
 
-3. Run ``cmodel my-preset`` and you're good to go!
+3. Run ``cmodel my-preset`` and Claude will open with that preset.
 
 ---
 
@@ -350,8 +363,9 @@ else {
 
 ## Tips
 
-- **Auto-start CCR**: Presets using ``localhost:3000`` automatically start the router
-- **Dashboard**: CCR Dashboard opens in the browser when the router starts
+- **CCR on-demand**: Start the router with `ccr start --no-claude` (or `ccr-dash`) when using the `router` preset.
+- **Dashboard**: Open the dashboard manually with `ccr-dash` when needed
+- **Clean config**: Remove global `ANTHROPIC_*` entries from `~/.claude/settings.json` to avoid mixed providers
 - **Update**: Run the install command again to update
 
 ``````powershell
