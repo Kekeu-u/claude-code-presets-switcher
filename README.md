@@ -4,8 +4,8 @@ Switch Claude Code between providers with one command.
 
 `cmodel` supports two modes:
 
-- **Isolated** (default) — preset applies only to the current terminal session, no file written.
-- **Persisted** (`-SetDefault`) — writes to `~/.claude/settings.local.json` for VS Code Claude extension.
+- **Isolated** (default) - preset applies only to the current terminal session, no file written.
+- **Persisted** (`-SetDefault`) - writes to `~/.claude/settings.local.json` for VS Code Claude.
 
 ## Quick Start
 
@@ -18,13 +18,10 @@ Restart the terminal, then run `cmodel`.
 ## Usage
 
 ```powershell
-cmodel                         # interactive menu — default is Isolated (Enter)
-cmodel kimi                    # apply kimi isolated + open Claude in this terminal
-cmodel kimi -ApplyOnly         # apply kimi isolated, do NOT open Claude
-cmodel kimi -SetDefault        # apply + persist as VS Code Claude default
-cmodel kimi -SetDefault -ApplyOnly
-                               # persist default without opening Claude
-cmodel router                  # apply router isolated + open Claude in this terminal
+cmodel                         # interactive menu - choose preset and open isolated
+cmodel litellm                 # apply LiteLLM isolated + open Claude
+cmodel litellm -ApplyOnly      # apply LiteLLM only in this terminal
+cmodel litellm -SetDefault     # persist LiteLLM for VS Code Claude
 cmodel anthropic               # clear session, revert to OAuth default
 cmodel anthropic -SetDefault   # clear persisted default provider
 cmodel -List                   # list available presets
@@ -33,13 +30,12 @@ cmodel -Status                 # show active session + persisted default
 
 ## What It Does
 
-- **Isolated by default** — env vars are set in the current process scope, never written to disk.
-- **Warns on session conflict** — if a session is already active, shows a warning before switching.
-- Dashboard launches open Claude in a detached isolated PowerShell window.
-- Persisted default via `~/.claude/settings.local.json` only when `-SetDefault` is explicit.
-- Old local state files (`.active-preset`, etc.) are cleaned automatically.
-- Missing model slots inherit `ANTHROPIC_MODEL` automatically.
-- Optional local dashboard for CCR via `ccr-dash`.
+- **Isolated by default** - env vars are set in the current process scope, never written to disk.
+- **Warns on session conflict** - if a session is already active, shows a warning before switching.
+- **Windows interactive launch** - opens Claude in a dedicated PowerShell window when needed to preserve TTY.
+- **Persisted default** - writes only managed provider keys into `~/.claude/settings.local.json` when `-SetDefault` is explicit.
+- **Safe cleanup** - old local state files (`.active-preset`, etc.) are cleaned automatically.
+- **Model fallback fill** - missing slot env vars inherit `ANTHROPIC_MODEL` automatically.
 
 ## Presets
 
@@ -52,8 +48,7 @@ The repo ships safe examples in [`presets/examples/`](./presets/examples/).
 | `minimax` | `presets/examples/minimax.example.json` | Direct Anthropic-compatible endpoint |
 | `gemini` | `presets/examples/gemini.example.json` | OpenAI-compatible endpoint |
 | `antigravity` | `presets/examples/antigravity.example.json` | Local Antigravity Manager on `127.0.0.1:8045` |
-| `router` | `presets/examples/router.example.json` | Local CCR on `127.0.0.1:3000` |
-| `openai-oauth` | `presets/examples/openai.example.json` | OpenAI via CCR |
+| `litellm` | `presets/examples/litellm.example.json` | Local LiteLLM proxy on `127.0.0.1:4000` |
 
 Copy an example, rename it to `.json`, and add your real key outside git.
 
@@ -76,7 +71,7 @@ Copy an example, rename it to `.json`, and add your real key outside git.
 }
 ```
 
-For Antigravity, use `ANTHROPIC_API_KEY` instead of `ANTHROPIC_AUTH_TOKEN` and keep it separate from CCR presets:
+For Antigravity, use `ANTHROPIC_API_KEY` instead of `ANTHROPIC_AUTH_TOKEN`:
 
 ```json
 {
@@ -93,29 +88,60 @@ For Antigravity, use `ANTHROPIC_API_KEY` instead of `ANTHROPIC_AUTH_TOKEN` and k
 
 More preset notes live in [PROVIDERS.md](./PROVIDERS.md).
 
+## LiteLLM
+
+`cmodel litellm` only points Claude to your local LiteLLM proxy. It does not auto-start the service.
+
+LiteLLM's docs show two valid Anthropic-style routes:
+
+- `http://127.0.0.1:4000/v1/messages`
+- `http://127.0.0.1:4000/anthropic/v1/messages`
+
+This repo uses `/v1/messages` in the example preset. If your LiteLLM setup is using Anthropic passthrough under `/anthropic`, adjust the preset accordingly.
+
+Minimal local flow:
+
+```bash
+litellm --config config.yaml
+```
+
+Minimal `config.yaml` example:
+
+```yaml
+model_list:
+  - model_name: claude-code
+    litellm_params:
+      model: anthropic/<your-model-name>
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+general_settings:
+  master_key: sk-litellm-local
+```
+
+Matching preset:
+
+```json
+{
+  "_preset": {
+    "name": "LiteLLM Local",
+    "description": "Local LiteLLM proxy"
+  },
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000/v1/messages",
+    "ANTHROPIC_AUTH_TOKEN": "sk-litellm-local",
+    "ANTHROPIC_MODEL": "claude-code",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
+  }
+}
+```
+
 ## Keep Claude Config Clean
 
 Do not keep provider env such as `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, or `ANTHROPIC_AUTH_TOKEN` inside `~/.claude/settings.json`.
 
-Do not keep a root `apiBaseUrl` there either. That value overrides provider endpoints globally and can silently force Claude back to a local proxy such as `http://127.0.0.1:8045`.
-
-Those values are global and can leak across providers, which is exactly the kind of mixed session `cmodel` is trying to avoid.
+Do not keep a root `apiBaseUrl` there either. That value overrides provider endpoints globally and can silently force Claude back to the wrong proxy.
 
 If you want the VS Code extension to follow the selected provider, use `cmodel <name> -SetDefault`. That writes only the managed provider keys into `~/.claude/settings.local.json`, while preserving existing permissions and unrelated settings.
-
-## CCR And Dashboard
-
-`cmodel router` only points Claude to the local CCR endpoint. It does not auto-start anything.
-
-`cmodel antigravity` is a separate local proxy preset and should not share router config with CCR.
-
-```powershell
-npm install -g @musistudio/claude-code-router
-ccr start --no-claude
-ccr-dash
-```
-
-The dashboard is a small local UI in [`dashboard/`](./dashboard/).
 
 ## Manual Install
 
@@ -123,7 +149,6 @@ The dashboard is a small local UI in [`dashboard/`](./dashboard/).
 git clone https://github.com/Kekeu-u/claude-code-presets-switcher.git
 New-Item -ItemType Directory -Path "$env:USERPROFILE\.claude\presets" -Force | Out-Null
 Copy-Item .\claude-code-presets-switcher\switch-preset.ps1 "$env:USERPROFILE\.claude\presets\" -Force
-Copy-Item .\claude-code-presets-switcher\dashboard "$env:USERPROFILE\.claude\presets\" -Recurse -Force
 Copy-Item .\claude-code-presets-switcher\presets "$env:USERPROFILE\.claude\presets\" -Recurse -Force
 
 Add-Content $PROFILE @'

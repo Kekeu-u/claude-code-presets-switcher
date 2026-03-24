@@ -11,7 +11,7 @@ This file is intentionally narrow: it documents the example presets and the envi
 | `ANTHROPIC_BASE_URL` | Endpoint Claude Code will call |
 | `ANTHROPIC_AUTH_TOKEN` | Provider key for providers that expect Anthropic auth tokens |
 | `ANTHROPIC_API_KEY` | Provider key for providers that expect API keys such as Antigravity |
-| `ANTHROPIC_MODEL` | Main model |
+| `ANTHROPIC_MODEL` | Main model or LiteLLM alias |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | Main interactive slot |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` | Main heavy slot |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Fast slot |
@@ -27,8 +27,7 @@ This file is intentionally narrow: it documents the example presets and the envi
 | `minimax` | `https://api.minimax.io/anthropic` | `MiniMax-M2.7` | `MiniMax-M2.7` | `presets/examples/minimax.example.json` |
 | `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.1-pro-preview` | `gemini-3-flash-preview` | `presets/examples/gemini.example.json` |
 | `antigravity` | `http://127.0.0.1:8045` | `proxy-managed` | `proxy-managed` | `presets/examples/antigravity.example.json` |
-| `router` | `http://127.0.0.1:3000/v1/messages` | `ccr-smart-router` | `ccr-smart-router` | `presets/examples/router.example.json` |
-| `openai-oauth` | `http://127.0.0.1:3000/v1/messages` | `gpt-5.3-codex` | `gpt-5.3-codex-spark` | `presets/examples/openai.example.json` |
+| `litellm` | `http://127.0.0.1:4000/v1/messages` | `claude-code` | `claude-code-fast` | `presets/examples/litellm.example.json` |
 
 ## Notes
 
@@ -44,20 +43,22 @@ MiniMax's current docs are split across two pages:
 
 This repo pins `MiniMax-M2.7` in every Claude Code slot for consistency. That is an implementation choice in this repo; the current MiniMax AI Coding Tools example page still shows `MiniMax-M2.5`.
 
-### OpenAI And Router
+### LiteLLM
 
-`router` and `openai-oauth` both point to local CCR on port `3000`.
+`litellm` is the default local proxy path for this repo now.
 
-- `router` is a generic local routing preset.
-- `openai-oauth` assumes CCR is already configured to route to OpenAI models.
+- The example preset points to `http://127.0.0.1:4000/v1/messages`.
+- LiteLLM's docs also support Anthropic passthrough under `http://127.0.0.1:4000/anthropic/v1/messages`.
+- `ANTHROPIC_AUTH_TOKEN` should match your LiteLLM master key or virtual key.
+- `ANTHROPIC_MODEL` should match the alias you expose in LiteLLM's `config.yaml`.
 
 ### Antigravity
 
-`antigravity` is separate from CCR and follows Antigravity Manager's Claude CLI flow: set `ANTHROPIC_BASE_URL` plus `ANTHROPIC_API_KEY`, and let the proxy manage model mapping.
+`antigravity` is separate from LiteLLM and follows Antigravity Manager's Claude CLI flow: set `ANTHROPIC_BASE_URL` plus `ANTHROPIC_API_KEY`, and let the proxy manage model mapping.
 
 ### Gemini
 
-The Gemini example uses Google's OpenAI-compatible endpoint. If your local CCR setup works better for Gemini in your environment, keep that mapping in CCR instead of using the direct preset.
+The Gemini example uses Google's OpenAI-compatible endpoint directly. If you prefer to route Gemini through LiteLLM, configure that alias in LiteLLM and use the `litellm` preset instead of a direct preset.
 
 ## Adding A New Preset
 
@@ -71,4 +72,3 @@ The Gemini example uses Google's OpenAI-compatible endpoint. If your local CCR s
 
 - [README.md](./README.md)
 - [switch-preset.ps1](./switch-preset.ps1)
-- [dashboard/index.html](./dashboard/index.html)

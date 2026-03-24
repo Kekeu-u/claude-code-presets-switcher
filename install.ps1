@@ -1,15 +1,9 @@
-# ╔══════════════════════════════════════════════════════════╗
-# ║  cmodel installer — by kekeu 🐉                        ║
-# ║  Claude Code Preset Switcher + CCR Dashboard            ║
-# ║  https://github.com/Kekeu-u/claude-code-presets-switcher║
-# ╚══════════════════════════════════════════════════════════╝
+# cmodel installer
 #
 # Install:
 #   irm https://raw.githubusercontent.com/Kekeu-u/claude-code-presets-switcher/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
-
-# ─── i18n ──────────────────────────────────────────────────
 
 $lang = if ((Get-Culture).Name -match "^pt") { "pt" } else { "en" }
 
@@ -21,30 +15,24 @@ $i18n = @{
         step1_ok     = "Language: English"
         step2        = "Checking dependencies"
         step2_git    = "Git found"
-        step2_node   = "Node.js found"
         step3        = "Downloading cmodel"
         step3_update = "Updating existing installation"
         step3_ok     = "cmodel ready"
         step4        = "Setting up PowerShell profile"
         step4_ok     = "Aliases registered: cmodel, claude-preset"
         step4_skip   = "Profile already configured"
-        step5        = "Registering ccr-dash command"
-        step5_ok     = "ccr-dash available globally"
-        step5_skip   = "Dashboard not found (optional)"
-        step6        = "Creating quick reference guide"
-        step6_ok     = "Guide saved to Desktop"
-        step7        = "Done!"
-        step7_usage  = "Quick start"
-        step7_cmd1   = "cmodel              Choose preset + launch mode"
-        step7_cmd2   = "cmodel <name>       Open Claude with an isolated preset"
-        step7_cmd3   = "cmodel <name> -SetDefault  Persist preset for VS Code Claude"
-        step7_cmd4   = "cmodel <name> -SetDefault -ApplyOnly  Persist without opening"
-        step7_cmd5   = "ccr-dash            Open CCR Dashboard"
-        step7_next   = "Restart your terminal, then run: cmodel"
+        step5        = "Creating quick reference guide"
+        step5_ok     = "Guide saved to Desktop"
+        step6        = "Done!"
+        step6_usage  = "Quick start"
+        step6_cmd1   = "cmodel              Choose a preset"
+        step6_cmd2   = "cmodel litellm      Open Claude with local LiteLLM"
+        step6_cmd3   = "cmodel <name> -ApplyOnly   Apply only in this terminal"
+        step6_cmd4   = "cmodel <name> -SetDefault  Persist for VS Code Claude"
+        step6_next   = "Restart your terminal, then run: cmodel"
         err_git      = "Git is required. Install: winget install Git.Git"
-        err_node     = "Node.js is required. Install: winget install OpenJS.NodeJS.LTS"
         err_fail     = "Installation failed"
-        guide_file   = "kekeu-ccr-guide.md"
+        guide_file   = "kekeu-cmodel-guide.md"
     }
     pt = @{
         banner_title = "instalador cmodel"
@@ -53,46 +41,49 @@ $i18n = @{
         step1_ok     = "Idioma: Portugues"
         step2        = "Verificando dependencias"
         step2_git    = "Git encontrado"
-        step2_node   = "Node.js encontrado"
         step3        = "Baixando cmodel"
         step3_update = "Atualizando instalacao existente"
         step3_ok     = "cmodel pronto"
         step4        = "Configurando perfil PowerShell"
         step4_ok     = "Aliases registrados: cmodel, claude-preset"
         step4_skip   = "Perfil ja configurado"
-        step5        = "Registrando comando ccr-dash"
-        step5_ok     = "ccr-dash disponivel globalmente"
-        step5_skip   = "Dashboard nao encontrado (opcional)"
-        step6        = "Criando guia de referencia rapida"
-        step6_ok     = "Guia salvo na Area de Trabalho"
-        step7        = "Concluido!"
-        step7_usage  = "Como usar"
-        step7_cmd1   = "cmodel              Escolhe preset + modo de abertura"
-        step7_cmd2   = "cmodel <nome>       Abre o Claude com preset isolado"
-        step7_cmd3   = "cmodel <nome> -SetDefault  Salva preset para o VS Code Claude"
-        step7_cmd4   = "cmodel <nome> -SetDefault -ApplyOnly  Salva sem abrir"
-        step7_cmd5   = "ccr-dash            Abrir Dashboard CCR"
-        step7_next   = "Reinicie o terminal e rode: cmodel"
+        step5        = "Criando guia de referencia rapida"
+        step5_ok     = "Guia salvo na Area de Trabalho"
+        step6        = "Concluido!"
+        step6_usage  = "Como usar"
+        step6_cmd1   = "cmodel              Escolhe um preset"
+        step6_cmd2   = "cmodel litellm      Abre o Claude com LiteLLM local"
+        step6_cmd3   = "cmodel <nome> -ApplyOnly   Aplica so neste terminal"
+        step6_cmd4   = "cmodel <nome> -SetDefault  Salva para o VS Code Claude"
+        step6_next   = "Reinicie o terminal e rode: cmodel"
         err_git      = "Git e necessario. Instale: winget install Git.Git"
-        err_node     = "Node.js e necessario. Instale: winget install OpenJS.NodeJS.LTS"
         err_fail     = "Falha na instalacao"
-        guide_file   = "kekeu-ccr-guide.md"
+        guide_file   = "kekeu-cmodel-guide.md"
     }
 }
 
 $t = $i18n[$lang]
-$totalSteps = 7
-
-# ─── Helpers ───────────────────────────────────────────────
+$totalSteps = 5
 
 function Write-Step { param([int]$n, [string]$msg) Write-Host "  [$n/$totalSteps] " -ForegroundColor DarkCyan -NoNewline; Write-Host $msg -ForegroundColor White }
 function Write-Ok { param([string]$msg) Write-Host "     -> " -ForegroundColor Green -NoNewline; Write-Host $msg -ForegroundColor Green }
 function Write-Warn { param([string]$msg) Write-Host "     -> " -ForegroundColor Yellow -NoNewline; Write-Host $msg -ForegroundColor Yellow }
 function Write-Err { param([string]$msg) Write-Host "     -> " -ForegroundColor Red -NoNewline; Write-Host $msg -ForegroundColor Red }
-function Write-Sep { Write-Host "  ════════════════════════════════════════" -ForegroundColor DarkGreen }
-function Write-Mini { param([string]$msg) Write-Host "        $msg" -ForegroundColor DarkGray }
+function Write-Sep { Write-Host "  =======================================" -ForegroundColor DarkGreen }
 
-# ─── Banner ────────────────────────────────────────────────
+function Remove-OldDashboardFiles {
+    param([string]$InstallDir)
+
+    $dashboardDir = Join-Path $InstallDir "dashboard"
+    if (Test-Path $dashboardDir) {
+        Remove-Item $dashboardDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $dashBat = Join-Path $env:APPDATA "npm\ccr-dash.bat"
+    if (Test-Path $dashBat) {
+        Remove-Item $dashBat -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Clear-Host
 Write-Host ""
@@ -102,35 +93,23 @@ Write-Host "      " -NoNewline
 Write-Host $t.banner_title -ForegroundColor Green
 Write-Host "      $($t.banner_sub)" -ForegroundColor DarkGray
 Write-Host "      by " -ForegroundColor DarkGray -NoNewline
-Write-Host "kekeu" -ForegroundColor Green -NoNewline
-Write-Host " " -NoNewline
-Write-Host ([char]0xD83D + [char]0xDC09) -ErrorAction SilentlyContinue 2>$null
+Write-Host "kekeu" -ForegroundColor Green
 Write-Host ""
 Write-Sep
 Write-Host ""
-
-# ─── Step 1: Language ──────────────────────────────────────
 
 Write-Step 1 $t.step1
 Write-Ok $t.step1_ok
 Write-Host ""
 
-# ─── Step 2: Pre-checks ───────────────────────────────────
-
 Write-Step 2 $t.step2
-
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Err $t.err_git; Write-Host ""; return
+    Write-Err $t.err_git
+    Write-Host ""
+    return
 }
 Write-Ok $t.step2_git
-
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Err $t.err_node; Write-Host ""; return
-}
-Write-Ok $t.step2_node
 Write-Host ""
-
-# ─── Step 3: Clone / Update ───────────────────────────────
 
 $installDir = "$env:USERPROFILE\.claude\presets"
 $repoUrl = "https://github.com/Kekeu-u/claude-code-presets-switcher.git"
@@ -143,22 +122,18 @@ try {
     else {
         Write-Step 3 $t.step3
 
-        # Backup existing presets
         $backupDir = "$env:TEMP\cmodel-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         if (Test-Path $installDir) {
             Copy-Item $installDir $backupDir -Recurse -Force
         }
 
-        # Ensure parent dir exists
         $parentDir = Split-Path $installDir
         if (-not (Test-Path $parentDir)) {
             New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
         }
 
-        # Clone
         git clone $repoUrl $installDir --quiet 2>&1 | Out-Null
 
-        # Restore backed up user presets
         if (Test-Path $backupDir) {
             Get-ChildItem "$backupDir\*.json" -ErrorAction SilentlyContinue | ForEach-Object {
                 if (-not (Test-Path "$installDir\$($_.Name)")) {
@@ -166,7 +141,6 @@ try {
                 }
             }
         }
-
     }
 
     foreach ($legacyPath in @(
@@ -180,18 +154,17 @@ try {
         }
     }
 
+    Remove-OldDashboardFiles -InstallDir $installDir
     Write-Ok $t.step3_ok
 }
 catch {
     Write-Err "$($t.err_fail): $($_.Exception.Message)"
-    Write-Host ""; return
+    Write-Host ""
+    return
 }
 Write-Host ""
 
-# ─── Step 4: PowerShell Profile ────────────────────────────
-
 Write-Step 4 $t.step4
-
 $profilePath = $PROFILE
 $profileDir = Split-Path $profilePath
 if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
@@ -216,26 +189,7 @@ Set-Alias cmodel Switch-ClaudePreset
 }
 Write-Host ""
 
-# ─── Step 5: Register ccr-dash ─────────────────────────────
-
 Write-Step 5 $t.step5
-
-$dashBat = "$installDir\dashboard\ccr-dash.bat"
-$npmDir = "$env:APPDATA\npm"
-
-if ((Test-Path $dashBat) -and (Test-Path $npmDir)) {
-    Copy-Item $dashBat "$npmDir\ccr-dash.bat" -Force
-    Write-Ok $t.step5_ok
-}
-else {
-    Write-Warn $t.step5_skip
-}
-Write-Host ""
-
-# ─── Step 6: Generate Quick Reference Guide ───────────────
-
-Write-Step 6 $t.step6
-
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $guidePath = Join-Path $desktopPath $t.guide_file
 
@@ -243,182 +197,117 @@ if ($lang -eq "pt") {
     $guideContent = @"
 # cmodel - Guia de Referencia Rapida
 
-> by **kekeu** | [GitHub](https://github.com/Kekeu-u/claude-code-presets-switcher)
-
----
-
-## Comandos Essenciais
+## Comandos
 
 | Comando | O que faz |
 |---------|-----------|
-| ``cmodel`` | Menu interativo com escolha de preset e modo de abertura |
-| ``cmodel <nome>`` | Abre o Claude com preset isolado |
-| ``cmodel <nome> -ApplyOnly`` | Aplica o preset so neste terminal |
-| ``cmodel <nome> -SetDefault`` | Salva o preset em ``~/.claude/settings.local.json`` para o VS Code Claude |
-| ``cmodel <nome> -SetDefault -ApplyOnly`` | Salva o preset como padrao sem abrir o Claude |
-| ``cmodel anthropic`` | Abre o Claude oficial (OAuth limpo) |
-| ``cmodel anthropic -SetDefault`` | Limpa o provider padrao persistido |
-| ``cmodel -List`` | Lista todos os presets disponiveis |
-| ``cmodel -Status`` | Mostra a sessao atual e o padrao do VS Code |
-| ``ccr-dash`` | Abre o dashboard CCR no browser |
+| ``cmodel`` | Abre o menu de presets |
+| ``cmodel litellm`` | Abre o Claude com o proxy LiteLLM local |
+| ``cmodel <nome> -ApplyOnly`` | Aplica so neste terminal |
+| ``cmodel <nome> -SetDefault`` | Salva em ``~/.claude/settings.local.json`` |
+| ``cmodel anthropic`` | Volta para o Claude oficial |
 
----
+## LiteLLM local
 
-## Como Criar um Preset
+1. Suba o LiteLLM:
 
-1. Crie um arquivo ``~/.claude/presets/meu-preset.json``
-2. Use esta estrutura:
+``````bash
+litellm --config config.yaml
+``````
+
+2. Exemplo minimo de preset:
 
 ``````json
 {
   "_preset": {
-    "name": "Meu Preset",
-    "description": "Descricao curta do preset"
+    "name": "LiteLLM Local",
+    "description": "Proxy local via LiteLLM"
   },
   "env": {
-    "ANTHROPIC_BASE_URL": "https://seu-provider.com/v1",
-    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
-    "ANTHROPIC_MODEL": "nome-do-modelo"
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000/v1/messages",
+    "ANTHROPIC_AUTH_TOKEN": "sk-litellm-local",
+    "ANTHROPIC_MODEL": "claude-code",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
   }
 }
 ``````
 
-3. Rode ``cmodel meu-preset`` e o Claude abre com esse preset.
+3. Se seu LiteLLM estiver usando passthrough Anthropic, troque a URL para:
 
----
-
-## Campos Opcionais do env
-
-| Campo | Para que serve |
-|-------|---------------|
-| ``ANTHROPIC_DEFAULT_SONNET_MODEL`` | Override do modelo Sonnet |
-| ``ANTHROPIC_DEFAULT_OPUS_MODEL`` | Override do modelo Opus |
-| ``ANTHROPIC_DEFAULT_HAIKU_MODEL`` | Override do modelo Haiku |
-| ``ANTHROPIC_SMALL_FAST_MODEL`` | Modelo para tarefas rapidas |
-| ``API_TIMEOUT_MS`` | Timeout da API (ms) |
-
----
-
-## Dicas
-
-- **CCR manual**: Inicie o router com `ccr start --no-claude` (ou `ccr-dash`) quando quiser usar o preset `router`.
-- **Dashboard**: Use `ccr-dash` para abrir o dashboard quando necessário
-- **Config limpa**: Nao deixe `ANTHROPIC_*` globais em `~/.claude/settings.json`
-- **Padrao do VS Code**: Use `cmodel <nome> -SetDefault` para a extensao seguir o provider salvo em `~/.claude/settings.local.json`
-- **Atualizar**: Rode o comando de instalacao novamente para atualizar
-
-``````powershell
-irm https://raw.githubusercontent.com/Kekeu-u/claude-code-presets-switcher/main/install.ps1 | iex
+``````text
+http://127.0.0.1:4000/anthropic/v1/messages
 ``````
-
----
-
-*Gerado automaticamente pelo installer cmodel*
 "@
 }
 else {
     $guideContent = @"
 # cmodel - Quick Reference Guide
 
-> by **kekeu** | [GitHub](https://github.com/Kekeu-u/claude-code-presets-switcher)
-
----
-
-## Essential Commands
+## Commands
 
 | Command | What it does |
-|---------|-------------|
-| ``cmodel`` | Interactive menu to choose a preset and launch mode |
-| ``cmodel <name>`` | Open Claude with an isolated preset |
-| ``cmodel <name> -ApplyOnly`` | Apply the preset only in the current shell |
-| ``cmodel <name> -SetDefault`` | Persist the preset into ``~/.claude/settings.local.json`` for VS Code Claude |
-| ``cmodel <name> -SetDefault -ApplyOnly`` | Persist the preset without opening Claude |
-| ``cmodel anthropic`` | Open official Claude on a clean OAuth flow |
-| ``cmodel anthropic -SetDefault`` | Clear the persisted default provider |
-| ``cmodel -List`` | List all available presets |
-| ``cmodel -Status`` | Show the current shell session and VS Code default |
-| ``ccr-dash`` | Open CCR Dashboard in the browser |
+|---------|--------------|
+| ``cmodel`` | Opens the preset menu |
+| ``cmodel litellm`` | Opens Claude with the local LiteLLM proxy |
+| ``cmodel <name> -ApplyOnly`` | Applies only in this terminal |
+| ``cmodel <name> -SetDefault`` | Persists into ``~/.claude/settings.local.json`` |
+| ``cmodel anthropic`` | Returns to official Claude |
 
----
+## Local LiteLLM
 
-## How to Create a Preset
+1. Start LiteLLM:
 
-1. Create a file ``~/.claude/presets/my-preset.json``
-2. Use this structure:
+``````bash
+litellm --config config.yaml
+``````
+
+2. Minimal preset example:
 
 ``````json
 {
   "_preset": {
-    "name": "My Preset",
-    "description": "Short description of the preset"
+    "name": "LiteLLM Local",
+    "description": "Local proxy via LiteLLM"
   },
   "env": {
-    "ANTHROPIC_BASE_URL": "https://your-provider.com/v1",
-    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
-    "ANTHROPIC_MODEL": "model-name"
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000/v1/messages",
+    "ANTHROPIC_AUTH_TOKEN": "sk-litellm-local",
+    "ANTHROPIC_MODEL": "claude-code",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
   }
 }
 ``````
 
-3. Run ``cmodel my-preset`` and Claude will open with that preset.
+3. If your LiteLLM setup uses Anthropic passthrough, switch the URL to:
 
----
-
-## Optional env Fields
-
-| Field | Purpose |
-|-------|---------|
-| ``ANTHROPIC_DEFAULT_SONNET_MODEL`` | Sonnet model override |
-| ``ANTHROPIC_DEFAULT_OPUS_MODEL`` | Opus model override |
-| ``ANTHROPIC_DEFAULT_HAIKU_MODEL`` | Haiku model override |
-| ``ANTHROPIC_SMALL_FAST_MODEL`` | Model for fast/small tasks |
-| ``API_TIMEOUT_MS`` | API timeout in milliseconds |
-
----
-
-## Tips
-
-- **CCR on-demand**: Start the router with `ccr start --no-claude` (or `ccr-dash`) when using the `router` preset.
-- **Dashboard**: Open the dashboard manually with `ccr-dash` when needed
-- **Clean config**: Do not keep global `ANTHROPIC_*` entries in `~/.claude/settings.json`
-- **VS Code default**: Use `cmodel <name> -SetDefault` when you want the extension to follow the saved provider in `~/.claude/settings.local.json`
-- **Update**: Run the install command again to update
-
-``````powershell
-irm https://raw.githubusercontent.com/Kekeu-u/claude-code-presets-switcher/main/install.ps1 | iex
+``````text
+http://127.0.0.1:4000/anthropic/v1/messages
 ``````
-
----
-
-*Auto-generated by cmodel installer*
 "@
 }
 
 try {
     [System.IO.File]::WriteAllText($guidePath, $guideContent, [System.Text.UTF8Encoding]::new($false))
-    Write-Ok "$($t.step6_ok): $($t.guide_file)"
+    Write-Ok "$($t.step5_ok): $($t.guide_file)"
 }
 catch {
     Write-Warn "Could not save guide: $($_.Exception.Message)"
 }
 Write-Host ""
 
-# ─── Step 7: Done! ─────────────────────────────────────────
-
 Write-Sep
 Write-Host ""
 Write-Host "  " -NoNewline
-Write-Host $t.step7 -ForegroundColor Green
+Write-Host $t.step6 -ForegroundColor Green
 Write-Host ""
-Write-Host "  $($t.step7_usage):" -ForegroundColor Cyan
-Write-Host "     $($t.step7_cmd1)" -ForegroundColor Gray
-Write-Host "     $($t.step7_cmd2)" -ForegroundColor Gray
-Write-Host "     $($t.step7_cmd3)" -ForegroundColor Gray
-Write-Host "     $($t.step7_cmd4)" -ForegroundColor Gray
-Write-Host "     $($t.step7_cmd5)" -ForegroundColor Gray
+Write-Host "  $($t.step6_usage):" -ForegroundColor Cyan
+Write-Host "     $($t.step6_cmd1)" -ForegroundColor Gray
+Write-Host "     $($t.step6_cmd2)" -ForegroundColor Gray
+Write-Host "     $($t.step6_cmd3)" -ForegroundColor Gray
+Write-Host "     $($t.step6_cmd4)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  -> " -ForegroundColor Yellow -NoNewline
-Write-Host $t.step7_next -ForegroundColor Yellow
+Write-Host $t.step6_next -ForegroundColor White
 Write-Host ""
 Write-Sep
 Write-Host ""

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRESETS_DIR="${HOME}/.claude/presets"
+BUNDLED_PRESETS_DIR="${PRESETS_DIR}/presets"
 SETTINGS_JSON_PATH="${HOME}/.claude/settings.json"
 SETTINGS_LOCAL_JSON_PATH="${HOME}/.claude/settings.local.json"
 CLAUDE_ENV_VARS=(
@@ -46,9 +46,67 @@ print_line() {
 }
 
 get_preset_files() {
-  find "$PRESETS_DIR" -maxdepth 1 -type f -name '*.json' \
-    ! -name 'oauth-accounts.json' \
-    ! -name 'oauth-backup.json' | sort
+  local search_dir=""
+  local preset_file=""
+  local preset_key=""
+  local -a preset_files=()
+  declare -A seen_presets=()
+
+  for search_dir in "$PRESETS_DIR" "$BUNDLED_PRESETS_DIR"; do
+    [[ -d "$search_dir" ]] || continue
+
+    while IFS= read -r preset_file; do
+      [[ -n "$preset_file" ]] || continue
+      preset_key="$(basename "$preset_file" .json)"
+      preset_key="${preset_key,,}"
+
+      if [[ -n "${seen_presets[$preset_key]+x}" ]]; then
+        continue
+      fi
+
+      seen_presets["$preset_key"]=1
+      preset_files+=("$preset_file")
+    done < <(find "$search_dir" -maxdepth 1 -type f -name '*.json' \
+      ! -name 'oauth-accounts.json' \
+      ! -name 'oauth-backup.json' | sort)
+  done
+
+  printf '%s\n' "${preset_files[@]}"
+}
+
+find_preset_file_by_name() {
+  local preset_name="$1"
+  local preset_file=""
+
+  while IFS= read -r preset_file; do
+    if [[ "$(basename "$preset_file" .json)" == "$preset_name" ]]; then
+      printf '%s\n' "$preset_file"
+      return 0
+    fi
+  done < <(get_preset_files)
+
+  return 1
+}
+
+get_settings_local_warning() {
+  if [[ ! -f "$SETTINGS_LOCAL_JSON_PATH" ]]; then
+    return 0
+  fi
+
+  node - "$SETTINGS_LOCAL_JSON_PATH" <<'NODE'
+const fs = require('fs');
+
+const filePath = process.argv[2];
+
+try {
+  const settings = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  if (!settings || Array.isArray(settings) || typeof settings !== 'object') {
+    console.log(`'${filePath}' precisa conter um objeto JSON na raiz. O default persistido sera ignorado ate ele ser corrigido.`);
+  }
+} catch (_) {
+  console.log(`Arquivo invalido em '${filePath}'. O default persistido sera ignorado ate ele ser corrigido.`);
+}
+NODE
 }
 
 get_settings_leak_keys() {
@@ -164,8 +222,7 @@ try {
     }
   }
 } catch (error) {
-  console.error(`Could not parse '${filePath}': ${error.message}`);
-  process.exit(1);
+  process.exit(0);
 }
 NODE
 }
@@ -463,6 +520,21 @@ show_settings_leak_warning() {
   print_line "         Isso pode misturar provider/modelo fora do preset."
 }
 
+show_settings_local_warning() {
+  local warning_message=""
+  warning_message="$(get_settings_local_warning || true)"
+  if [[ -z "$warning_message" ]]; then
+    return 0
+  fi
+
+  print_line ""
+  print_line "  [WARN] ~/.claude/settings.local.json esta invalido."
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    print_line "         $line"
+  done <<< "$warning_message"
+}
+
 get_marker_text() {
   local name="$1"
   local session_preset="$2"
@@ -498,6 +570,7 @@ show_preset_list() {
   print_line ""
   print_line "  Presets disponiveis:"
   show_settings_leak_warning
+  show_settings_local_warning
   print_line ""
 
   marker="$(get_marker_text "anthropic" "$session_preset" "$default_preset")"
@@ -566,6 +639,7 @@ show_preset_menu() {
     print_line ""
     print_line "  cmodel - escolha um preset:"
     show_settings_leak_warning
+    show_settings_local_warning
     print_line ""
 
     for ((index = 0; index < ${#MENU_NAMES[@]}; index++)); do
@@ -601,45 +675,14 @@ show_preset_menu() {
   done
 }
 
-show_mode_menu() {
-  local selected_preset="$1"
-  local choice=""
+show_session_conflict_warning() {
+  local current_preset="$1"
+  local new_preset="$2"
 
-  while true; do
-    print_line ""
-    print_line "  Como voce quer abrir '$selected_preset'?"
-    print_line "    [1] Abrir isolado (so este terminal)"
-    print_line "    [2] Abrir e definir como padrao do VS Code Claude"
-    print_line "    [3] Definir como padrao sem abrir Claude"
-    print_line "    [Q] Cancelar"
-    print_line ""
-
-    read -r -p "  Escolha: " choice || return 1
-    case "${choice^^}" in
-      1)
-        SET_DEFAULT=0
-        APPLY_ONLY=0
-        return 0
-        ;;
-      2)
-        SET_DEFAULT=1
-        APPLY_ONLY=0
-        return 0
-        ;;
-      3)
-        SET_DEFAULT=1
-        APPLY_ONLY=1
-        return 0
-        ;;
-      Q|"")
-        return 1
-        ;;
-      *)
-        print_line ""
-        print_line "  [X] Opcao invalida."
-        ;;
-    esac
-  done
+  print_line ""
+  print_line "  [WARN] Ja existe sessao ativa: '$current_preset'"
+  print_line "         Trocando para '$new_preset' nesta sessao."
+  print_line ""
 }
 
 show_usage() {
@@ -738,6 +781,7 @@ if [[ "$STATUS_MODE" -eq 1 ]]; then
   print_line "  Padrao VS Code: $(get_default_preset)"
   print_line "  Arquivo monitorado pela extensao: $SETTINGS_LOCAL_JSON_PATH"
   show_settings_leak_warning
+  show_settings_local_warning
   print_line ""
   script_exit 0
 fi
@@ -759,11 +803,9 @@ if [[ -z "$PRESET_NAME" ]]; then
 fi
 
 if [[ "$SELECTED_FROM_MENU" -eq 1 && "$APPLY_ONLY" -eq 0 && "$SET_DEFAULT" -eq 0 ]]; then
-  if ! show_mode_menu "$PRESET_NAME"; then
-    print_line ""
-    print_line "  [i] Cancelado."
-    print_line ""
-    script_exit 0
+  active_session="$(get_active_session_preset)"
+  if [[ -n "$active_session" && "$active_session" != "anthropic" && "$active_session" != "custom-session" && "$active_session" != "$PRESET_NAME" ]]; then
+    show_session_conflict_warning "$active_session" "$PRESET_NAME"
   fi
 fi
 
@@ -774,8 +816,8 @@ if [[ "$PRESET_NAME" == "anthropic" ]]; then
   PRESET_DESCRIPTION="Claude oficial (OAuth limpo)"
   PRESET_ENV=()
 else
-  PRESET_FILE="$PRESETS_DIR/${PRESET_NAME}.json"
-  if [[ ! -f "$PRESET_FILE" ]]; then
+  PRESET_FILE="$(find_preset_file_by_name "$PRESET_NAME" || true)"
+  if [[ -z "$PRESET_FILE" || ! -f "$PRESET_FILE" ]]; then
     print_line ""
     print_line "  [X] Preset '$PRESET_NAME' nao encontrado ou invalido."
     print_line "  [i] Rode: cmodel -List"
@@ -826,6 +868,7 @@ if [[ "$SET_DEFAULT" -eq 1 ]]; then
   print_line "  [i] Padrao persistido em: $SETTINGS_LOCAL_JSON_PATH"
 fi
 show_settings_leak_warning
+show_settings_local_warning
 
 if [[ "$APPLY_ONLY" -eq 1 ]]; then
   if [[ "$SET_DEFAULT" -eq 1 ]]; then

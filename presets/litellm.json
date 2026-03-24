@@ -1,0 +1,18 @@
+{
+    "_preset": {
+        "name": "LiteLLM Local",
+        "description": "Local LiteLLM proxy on 127.0.0.1:4000",
+        "created": "2026-03-24"
+    },
+    "env": {
+        "API_TIMEOUT_MS": "3000000",
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:4000/v1/messages",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_LITELLM_KEY_HERE",
+        "ANTHROPIC_MODEL": "claude-code",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-code",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-code",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-code-fast",
+        "ANTHROPIC_SMALL_FAST_MODEL": "claude-code-fast",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
+    }
+}

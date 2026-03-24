@@ -4,7 +4,7 @@
 # ╚══════════════════════════════════════════╝
 #
 # Uso: cmodel                         (menu interativo — padrao = Isolado)
-#       cmodel kimi                   (aplica isolado no terminal + abre Claude)
+#       cmodel kimi                   (abre Claude isolado; usa janela dedicada no Windows)
 #       cmodel kimi -ApplyOnly        (aplica preset isolado, NAO abre Claude)
 #       cmodel kimi -SetDefault       (aplica + persiste como padrao do VS Code Claude)
 #       cmodel kimi -SetDefault -ApplyOnly
@@ -24,6 +24,7 @@ $List = $false
 $Status = $false
 $ApplyOnly = $false
 $SetDefault = $false
+$ChildWindowLaunch = $false
 $ClaudeArgs = @()
 $forwardClaudeArgs = $false
 $selectedFromMenu = $false
@@ -40,6 +41,7 @@ foreach ($arg in $CliArgs) {
         '^(-Status|--status)$' { $Status = $true; continue }
         '^(-ApplyOnly|--apply-only|-NoLaunch|--no-launch)$' { $ApplyOnly = $true; continue }
         '^(-SetDefault|--set-default|-Default|--default)$' { $SetDefault = $true; continue }
+        '^(-ChildWindowLaunch|--child-window-launch)$' { $ChildWindowLaunch = $true; continue }
         default {
             if (-not $PresetName) {
                 $PresetName = $arg
@@ -52,6 +54,7 @@ foreach ($arg in $CliArgs) {
 }
 
 $presetsDir = Join-Path $env:USERPROFILE ".claude\presets"
+$bundledPresetsDir = Join-Path $presetsDir "presets"
 $settingsJsonPath = Join-Path $env:USERPROFILE ".claude\settings.json"
 $settingsLocalJsonPath = Join-Path $env:USERPROFILE ".claude\settings.local.json"
 $legacyStateFiles = @(
@@ -80,6 +83,7 @@ $modelSlotEnvVars = @(
     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
     "ANTHROPIC_SMALL_FAST_MODEL"
 )
+$script:settingsLocalJsonWarning = $null
 
 function New-JsonObject {
     return [PSCustomObject]@{}
@@ -138,7 +142,10 @@ function Get-ObjectPropertyNames {
 }
 
 function Get-JsonConfigObject {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        [switch]$AllowInvalidJson
+    )
 
     if (-not (Test-Path $Path)) {
         return (New-JsonObject)
@@ -159,6 +166,11 @@ function Get-JsonConfigObject {
         $config = $rawContent | ConvertFrom-Json -ErrorAction Stop
     }
     catch {
+        if ($AllowInvalidJson) {
+            $script:settingsLocalJsonWarning = "Arquivo invalido em '$Path'. O default persistido sera ignorado ate ele ser corrigido."
+            return (New-JsonObject)
+        }
+
         throw "Could not parse '$Path': $($_.Exception.Message)"
     }
 
@@ -167,6 +179,11 @@ function Get-JsonConfigObject {
     }
 
     if ($config -isnot [pscustomobject]) {
+        if ($AllowInvalidJson) {
+            $script:settingsLocalJsonWarning = "'$Path' precisa conter um objeto JSON na raiz. O default persistido sera ignorado ate ele ser corrigido."
+            return (New-JsonObject)
+        }
+
         throw "'$Path' must contain a JSON object at the root."
     }
 
@@ -229,11 +246,24 @@ function Get-OrCreate-EnvObject {
 }
 
 function Get-PresetFiles {
-    if (-not (Test-Path $presetsDir)) { return @() }
+    $presetFilesByName = @{}
 
-    Get-ChildItem $presetsDir -Filter "*.json" -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -ne "oauth-accounts.json" -and $_.Name -ne "oauth-backup.json" } |
-        Sort-Object Name
+    foreach ($searchDir in @($presetsDir, $bundledPresetsDir)) {
+        if (-not (Test-Path $searchDir)) { continue }
+
+        $files = Get-ChildItem $searchDir -Filter "*.json" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne "oauth-accounts.json" -and $_.Name -ne "oauth-backup.json" } |
+            Sort-Object Name
+
+        foreach ($file in $files) {
+            $key = $file.BaseName.ToLowerInvariant()
+            if (-not $presetFilesByName.ContainsKey($key)) {
+                $presetFilesByName[$key] = $file
+            }
+        }
+    }
+
+    return @($presetFilesByName.Values | Sort-Object Name)
 }
 
 function Read-PresetFile {
@@ -419,7 +449,7 @@ function Get-CurrentSessionManagedEnv {
 }
 
 function Get-ManagedEnvFromSettingsLocal {
-    $settings = Get-JsonConfigObject -Path $settingsLocalJsonPath
+    $settings = Get-JsonConfigObject -Path $settingsLocalJsonPath -AllowInvalidJson
     $envObject = Get-OrCreate-EnvObject -Settings $settings
     $managedEnv = [ordered]@{}
 
@@ -574,6 +604,14 @@ function Show-SettingsLeakWarning {
     Write-Host "         Isso pode misturar provider/modelo fora do preset." -ForegroundColor DarkGray
 }
 
+function Show-SettingsLocalWarning {
+    if ([string]::IsNullOrWhiteSpace($script:settingsLocalJsonWarning)) { return }
+
+    Write-Host ""
+    Write-Host "  [WARN] ~/.claude/settings.local.json esta invalido." -ForegroundColor Yellow
+    Write-Host "         $script:settingsLocalJsonWarning" -ForegroundColor DarkGray
+}
+
 function Get-PresetMarkerText {
     param($Option)
 
@@ -614,6 +652,7 @@ function Show-PresetMenu {
         Write-Host " - escolha um preset" -ForegroundColor Gray
         Write-Host "  Use Up/Down, Enter para escolher e Q/Esc para sair." -ForegroundColor DarkGray
         Show-SettingsLeakWarning
+        Show-SettingsLocalWarning
         Write-Host ""
 
         for ($i = 0; $i -lt $options.Count; $i++) {
@@ -658,55 +697,6 @@ function Show-SessionConflictWarning {
     Write-Host "  [WARN] Ja existe sessao ativa: '$CurrentPreset'" -ForegroundColor Yellow
     Write-Host "         Trocando para '$NewPreset' nesta sessao." -ForegroundColor DarkGray
     Write-Host ""
-}
-
-function Show-ModeMenu {
-    param(
-        [string]$SelectedPreset,
-        [string]$ActiveSessionPreset
-    )
-
-    if ($ActiveSessionPreset -and $ActiveSessionPreset -ne "anthropic" -and $ActiveSessionPreset -ne "custom-session") {
-        Show-SessionConflictWarning -CurrentPreset $ActiveSessionPreset -NewPreset $SelectedPreset
-    }
-
-    while ($true) {
-        Write-Host ""
-        Write-Host "  Como voce quer abrir '$SelectedPreset'?" -ForegroundColor Cyan
-        Write-Host "    [1] Isolado (so este terminal)         <-- padrao" -ForegroundColor Gray
-        Write-Host "    [2] Definir como padrao do VS Code Claude" -ForegroundColor Gray
-        Write-Host "    [3] Salvar padrao sem abrir Claude" -ForegroundColor Gray
-        Write-Host "    [Q] Cancelar" -ForegroundColor DarkGray
-        Write-Host ""
-
-        $choice = Read-Host "  Escolha (1)"
-        if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "1" }
-        switch ($choice.Trim().ToUpperInvariant()) {
-            "1" {
-                return [PSCustomObject]@{
-                    SetDefault = $false
-                    ApplyOnly = $false
-                }
-            }
-            "2" {
-                return [PSCustomObject]@{
-                    SetDefault = $true
-                    ApplyOnly = $false
-                }
-            }
-            "3" {
-                return [PSCustomObject]@{
-                    SetDefault = $true
-                    ApplyOnly = $true
-                }
-            }
-            "Q" { return $null }
-            default {
-                Write-Host ""
-                Write-Host "  [X] Opcao invalida." -ForegroundColor Red
-            }
-        }
-    }
 }
 
 function Apply-Preset {
@@ -801,6 +791,54 @@ function Invoke-ClaudeSession {
     return $LASTEXITCODE
 }
 
+function Open-ClaudeInChildWindow {
+    param(
+        [string]$Name,
+        [switch]$PersistDefault,
+        [string[]]$Arguments
+    )
+
+    $scriptPath = $PSCommandPath
+    if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+        $scriptPath = $MyInvocation.PSCommandPath
+    }
+
+    if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+        throw "Could not resolve switch-preset.ps1 path for child window launch."
+    }
+
+    $hostPath = $null
+    try {
+        $hostPath = (Get-Process -Id $PID -ErrorAction Stop).Path
+    }
+    catch {
+        $hostPath = $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($hostPath)) {
+        $hostPath = "powershell.exe"
+    }
+
+    $childArgs = @(
+        "-NoExit",
+        "-ExecutionPolicy", "Bypass",
+        "-File", $scriptPath,
+        $Name,
+        "-ChildWindowLaunch"
+    )
+
+    if ($PersistDefault) {
+        $childArgs += "-SetDefault"
+    }
+
+    if ($Arguments.Count -gt 0) {
+        $childArgs += "--"
+        $childArgs += $Arguments
+    }
+
+    Start-Process -FilePath $hostPath -ArgumentList $childArgs -WorkingDirectory (Get-Location).Path | Out-Null
+}
+
 Remove-LegacyStateFiles
 
 if ($List) {
@@ -811,6 +849,7 @@ if ($List) {
     Write-Host ""
     Write-Host "  Presets disponiveis:" -ForegroundColor Cyan
     Show-SettingsLeakWarning
+    Show-SettingsLocalWarning
     Write-Host ""
 
     foreach ($option in $options) {
@@ -844,6 +883,7 @@ if ($Status) {
     Write-Host "  Arquivo monitorado pela extensao: " -NoNewline -ForegroundColor Cyan
     Write-Host $settingsLocalJsonPath -ForegroundColor DarkGray
     Show-SettingsLeakWarning
+    Show-SettingsLocalWarning
     Write-Host ""
     return
 }
@@ -861,16 +901,37 @@ if (-not $PresetName) {
 
 if ($selectedFromMenu -and -not $ApplyOnly -and -not $SetDefault) {
     $activeSession = Get-ActiveSessionPreset
-    $selectedMode = Show-ModeMenu -SelectedPreset $PresetName -ActiveSessionPreset $activeSession
-    if (-not $selectedMode) {
-        Write-Host ""
-        Write-Host "  [i] Cancelado." -ForegroundColor DarkGray
-        Write-Host ""
+    if (
+        $activeSession -and
+        $activeSession -ne "anthropic" -and
+        $activeSession -ne "custom-session" -and
+        $activeSession -ne $PresetName
+    ) {
+        Show-SessionConflictWarning -CurrentPreset $activeSession -NewPreset $PresetName
+    }
+}
+
+$shouldLaunchChildWindow = (
+    ($env:OS -eq "Windows_NT") -and
+    (-not $ApplyOnly) -and
+    (-not $ChildWindowLaunch) -and
+    ($ClaudeArgs.Count -eq 0)
+)
+
+if ($shouldLaunchChildWindow) {
+    Write-Host ""
+    Write-Host "  [i] Abrindo Claude em nova janela PowerShell para preservar o TTY interativo." -ForegroundColor Cyan
+    Write-Host ""
+
+    try {
+        Open-ClaudeInChildWindow -Name $PresetName -PersistDefault:$SetDefault -Arguments $ClaudeArgs
         return
     }
-
-    $SetDefault = [bool]$selectedMode.SetDefault
-    $ApplyOnly = [bool]$selectedMode.ApplyOnly
+    catch {
+        Write-Host "  [WARN] Nao foi possivel abrir a nova janela. Tentando neste terminal..." -ForegroundColor Yellow
+        Write-Host "         $($_.Exception.Message)" -ForegroundColor DarkGray
+        Write-Host ""
+    }
 }
 
 $applyToCurrentSession = ($ApplyOnly -and -not $SetDefault)
@@ -898,6 +959,7 @@ if ($appliedPreset.Persisted) {
     Write-Host "  [i] Padrao persistido em: $settingsLocalJsonPath" -ForegroundColor DarkGray
 }
 Show-SettingsLeakWarning
+Show-SettingsLocalWarning
 
 if ($ApplyOnly) {
     Write-Host ""
